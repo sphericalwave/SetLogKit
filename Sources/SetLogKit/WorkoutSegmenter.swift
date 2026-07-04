@@ -24,7 +24,7 @@ public enum WorkoutSegmenter {
     /// calendar shows exactly one timed bar per workout per day, even when
     /// the work spans many hours. A session that physically crosses midnight
     /// produces two segments (one per day).
-    public static func segments<Log: SetRecord>(of logs: [Log]) -> [WorkoutSegment<Log>] {
+    public nonisolated static func segments<Log: SetRecord>(of logs: [Log]) -> [WorkoutSegment<Log>] {
         let logs = logs.sorted { $0.loggedAt < $1.loggedAt }
         guard !logs.isEmpty else { return [] }
 

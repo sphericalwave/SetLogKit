@@ -22,7 +22,7 @@ public struct ProgressionEvaluator: Sendable {
 
     public init() {}
 
-    public func suggest(from recent: [RatedSet]) -> ProgressionDecision {
+    public nonisolated func suggest(from recent: [RatedSet]) -> ProgressionDecision {
         let last3 = Array(recent.suffix(Self.progressWindow))
         guard last3.count == Self.progressWindow else { return .repeat }
 

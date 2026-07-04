@@ -20,5 +20,5 @@ public protocol SetRecord {
 }
 
 public extension SetRecord {
-    var ratedSet: RatedSet { RatedSet(rpt: rpt, rpe: rpe, rpd: rpd, loggedAt: loggedAt) }
+    nonisolated var ratedSet: RatedSet { RatedSet(rpt: rpt, rpe: rpe, rpd: rpd, loggedAt: loggedAt) }
 }

@@ -49,7 +49,7 @@ public enum CompletionSettings {
     public static var rpdMax: Int { read(rpdMaxKey, fallback: defaultRpdMax) }
     public static var romMin: Int { read(romMinKey, fallback: defaultRomMin) }
 
-    public static func resetToDefaults() {
+    public nonisolated static func resetToDefaults() {
         UserDefaults.standard.removeObject(forKey: rptMinKey)
         UserDefaults.standard.removeObject(forKey: rpeMaxKey)
         UserDefaults.standard.removeObject(forKey: rpdMaxKey)
@@ -62,7 +62,7 @@ public enum CompletionScorer {
     // MARK: - Quality fractions
 
     /// clamp(rpt / rptTarget, 0...1) — the technique-quality fraction.
-    public static func techniqueFraction(rpt: Int) -> Double {
+    public nonisolated static func techniqueFraction(rpt: Int) -> Double {
         let target = Double(CompletionSettings.rptMin > 0
                             ? CompletionSettings.rptMin
                             : CompletionSettings.defaultRptMin)
@@ -70,7 +70,7 @@ public enum CompletionScorer {
     }
 
     /// clamp(rom / romMin, 0...1) — the range-of-motion fraction (progYog).
-    public static func romFraction(rom: Int) -> Double {
+    public nonisolated static func romFraction(rom: Int) -> Double {
         let target = Double(CompletionSettings.romMin > 0
                             ? CompletionSettings.romMin
                             : CompletionSettings.defaultRomMin)
@@ -80,13 +80,13 @@ public enum CompletionScorer {
     // MARK: - Scores
 
     /// Depth-independent: full quality at any level = 100%.
-    public static func setScore(quality: Double) -> Double {
+    public nonisolated static func setScore(quality: Double) -> Double {
         min(1.0, max(0.0, quality)) * 100
     }
 
     /// (depth × quality) / maxDepth × 100. 100% only at the highest
     /// skill level with full quality.
-    public static func workoutScore(quality: Double, depth: Int, maxDepth: Int) -> Double? {
+    public nonisolated static func workoutScore(quality: Double, depth: Int, maxDepth: Int) -> Double? {
         guard maxDepth > 0 else { return nil }
         let achieved = Double(depth) * min(1.0, max(0.0, quality))
         return min(100, (achieved / Double(maxDepth)) * 100)
