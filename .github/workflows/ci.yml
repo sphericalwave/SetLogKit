@@ -7,8 +7,16 @@ on:
 jobs:
   test:
     name: test
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
+      # Checkout into Logging/SetLogKit so the local path dependency
+      # ../EquipmentKit resolves to the sibling checkout below.
       - uses: actions/checkout@v4
+        with:
+          path: Logging/SetLogKit
+      - uses: actions/checkout@v4
+        with:
+          repository: sphericalwave/EquipmentKit
+          path: Logging/EquipmentKit
       - name: Run package tests
-        run: swift test
+        run: swift test --package-path Logging/SetLogKit
