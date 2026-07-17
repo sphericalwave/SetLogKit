@@ -66,13 +66,16 @@ public struct RatedSetDraft<Payload: Codable & Equatable & Sendable>: Sendable {
     public let sliceCount: Int
     public let payload: Payload?
     public let hr: HRStats?
+    /// The date the set was logged, prefilled into the date picker when editing.
+    public let loggedAt: Date?
 
     public init(reps: Int, rpt: Int, rpe: Int, rpd: Int, notes: String,
                 decision: ProgressionDecision, isometric: Bool, sliceCount: Int,
-                payload: Payload?, hr: HRStats? = nil) {
+                payload: Payload?, hr: HRStats? = nil, loggedAt: Date? = nil) {
         self.reps = reps; self.rpt = rpt; self.rpe = rpe; self.rpd = rpd
         self.notes = notes; self.decision = decision; self.isometric = isometric
         self.sliceCount = sliceCount; self.payload = payload; self.hr = hr
+        self.loggedAt = loggedAt
     }
 }
 
@@ -87,6 +90,8 @@ public struct RatedSetEntry<Payload: Codable & Equatable & Sendable>: Sendable {
     public let isometric: Bool
     public let sliceCount: Int
     public let payload: Payload?
+    /// The date the user picked for the set (defaults to now for new sets).
+    public let loggedAt: Date
 }
 
 // MARK: - Config
@@ -143,6 +148,7 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
     @State private var isometric = false
     @State private var sliceCount = 0
     @State private var payload: Equipment.Payload?
+    @State private var loggedAt = Date()
     @State private var didInit = false
 
     @AppStorage(HRConfig.ageKey) private var hrAge = 30
@@ -195,7 +201,7 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
     private var resolvedHR: HRStats? { editing?.hr ?? liveHR }
 
     private var canSave: Bool {
-        !config.equipmentRequired || Equipment.isValid(payload)
+        !config.equipmentRequired || Equipment.isValid(payload ?? suggestedPayload)
     }
 
     public var body: some View {
@@ -212,7 +218,7 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
 
                 mainSection
 
-                if config.showsIsometric || config.showsSlices || Equipment.self != NoEquipment.self {
+                if config.showsIsometric || config.showsSlices {
                     equipmentSection
                 }
             }
@@ -229,14 +235,17 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
                         onSave(RatedSetEntry(
                             reps: reps, rpt: rpt, rpe: rpe, rpd: rpd, notes: notes,
                             decision: decision, isometric: isometric,
-                            sliceCount: sliceCount, payload: payload
+                            sliceCount: sliceCount, payload: payload ?? suggestedPayload,
+                            loggedAt: loggedAt
                         ))
                         dismiss()
                     }
                     .bold()
                     .disabled(!canSave)
+                    .accessibilityIdentifier("ratedSetForm.save")
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .onAppear(perform: initStateIfNeeded)
         }
     }
@@ -257,14 +266,22 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
                 }
             }
 
+            DatePicker("Date", selection: $loggedAt, displayedComponents: .date)
+                .accessibilityIdentifier("ratedSetForm.date")
+
             MetricStepperRow(label: "Reps", value: $reps, range: 0...200, info: config.repsInfo)
+                .accessibilityIdentifier("ratedSetForm.reps")
+
+            if Equipment.self != NoEquipment.self {
+                Equipment.inputView(payload: $payload, suggested: suggestedPayload)
+            }
 
             HStack(alignment: .top, spacing: 0) {
                 TEDMetricStepper(label: "Technique", value: $rpt,
                                  colorFor: FalseColor.technique,
                                  describe: TEDDescription.technique, style: config.tedStyle)
                 Spacer()
-                TEDMetricStepper(label: "Exertion", value: $rpe,
+                TEDMetricStepper(label: "Effort", value: $rpe,
                                  colorFor: FalseColor.exertion,
                                  describe: TEDDescription.exertion, style: config.tedStyle)
                 Spacer()
@@ -281,6 +298,7 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
                         .lineLimit(2...6)
                         .padding(8)
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.accentColor, lineWidth: 1))
+                        .accessibilityIdentifier("ratedSetForm.notes")
                     Button(action: { if let last = lastNote { notes = last } }) {
                         Image(systemName: "arrow.uturn.left").imageScale(.large)
                     }
@@ -323,9 +341,6 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
                     .tint(.accentColor)
                     .onChange(of: isometric) { _, on in if on { reps = 1 } }
             }
-            if Equipment.self != NoEquipment.self {
-                Equipment.inputView(payload: $payload, suggested: suggestedPayload)
-            }
             if config.showsSlices {
                 MetricStepperRow(
                     label: "Slices", value: $sliceCount, range: 0...30,
@@ -344,6 +359,7 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
             notes = edit.notes; decision = edit.decision
             isometric = edit.isometric; sliceCount = edit.sliceCount
             payload = edit.payload
+            loggedAt = edit.loggedAt ?? Date()
         } else {
             if let last = sortedPrior.last {
                 reps = last.reps; rpt = last.rpt; rpe = last.rpe; rpd = last.rpd
@@ -351,7 +367,6 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
             decision = suggestedDecision
             isometric = initialIsometric
             sliceCount = skill.defaultSliceCount
-            payload = suggestedPayload
         }
     }
 }
