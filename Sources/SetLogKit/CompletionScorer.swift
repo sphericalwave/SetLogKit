@@ -3,8 +3,8 @@
 //  SetLogKit
 //
 //  Two distinct scores, driven by a QUALITY fraction (0…1):
-//    - technique-based (rings/kettlebell/gpp/clubs): clamp(rpt / rptTarget)
-//    - ROM-based (progYog): clamp(rom / romMin)
+//    - technique-based: rpt / 10 — the rating itself is the percentage
+//    - ROM-based (progYog, retired): clamp(rom / romMin)
 //
 //  SET SCORE (per-set, shown in SetLogSheet):
 //      quality × 100 — depth-independent; full quality at any level = 100%.
@@ -61,12 +61,11 @@ public enum CompletionScorer {
 
     // MARK: - Quality fractions
 
-    /// clamp(rpt / rptTarget, 0...1) — the technique-quality fraction.
+    /// rpt / 10 — the technique-quality fraction. rpt is a 1...10 rating;
+    /// the rating itself is the percentage (rpt=8 → 80%), independent of
+    /// the `rptMin` qualifying threshold.
     public nonisolated static func techniqueFraction(rpt: Int) -> Double {
-        let target = Double(CompletionSettings.rptMin > 0
-                            ? CompletionSettings.rptMin
-                            : CompletionSettings.defaultRptMin)
-        return min(1.0, max(0.0, Double(rpt) / target))
+        min(1.0, max(0.0, Double(rpt) / 10.0))
     }
 
     /// clamp(rom / romMin, 0...1) — the range-of-motion fraction (progYog).

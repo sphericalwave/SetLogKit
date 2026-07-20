@@ -15,15 +15,14 @@ final class CompletionScorerTests: XCTestCase {
 
     // MARK: Quality fractions
 
-    func testTechniqueFractionClampsAtTarget() {
-        // default rptMin = 8
-        XCTAssertEqual(CompletionScorer.techniqueFraction(rpt: 8), 1.0)
+    func testTechniqueFractionIsRatingOverTen() {
         XCTAssertEqual(CompletionScorer.techniqueFraction(rpt: 10), 1.0)
-        XCTAssertEqual(CompletionScorer.techniqueFraction(rpt: 4), 0.5)
+        XCTAssertEqual(CompletionScorer.techniqueFraction(rpt: 8), 0.8)
+        XCTAssertEqual(CompletionScorer.techniqueFraction(rpt: 4), 0.4)
         XCTAssertEqual(CompletionScorer.techniqueFraction(rpt: 0), 0.0)
     }
 
-    func testTechniqueFractionHonorsSettingsOverride() {
+    func testTechniqueFractionIgnoresSettingsThreshold() {
         UserDefaults.standard.set(10, forKey: CompletionSettings.rptMinKey)
         XCTAssertEqual(CompletionScorer.techniqueFraction(rpt: 5), 0.5)
     }

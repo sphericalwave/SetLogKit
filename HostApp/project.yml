@@ -1,0 +1,51 @@
+name: RatedSetFormHarness
+options:
+  bundleIdPrefix: com.sphericalwave
+  deploymentTarget:
+    iOS: "17.0"
+
+packages:
+  SetLogKit:
+    path: ..
+  EquipmentKit:
+    path: ../../EquipmentKit
+
+targets:
+  RatedSetFormHarness:
+    type: application
+    platform: iOS
+    sources:
+      - RatedSetFormHarness
+    dependencies:
+      - package: SetLogKit
+      - package: EquipmentKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sphericalwave.RatedSetFormHarness
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        SWIFT_VERSION: "5.9"
+
+  RatedSetFormHarnessUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - RatedSetFormHarnessUITests
+    dependencies:
+      - target: RatedSetFormHarness
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sphericalwave.RatedSetFormHarnessUITests
+        SWIFT_VERSION: "5.9"
+
+schemes:
+  RatedSetFormHarness:
+    build:
+      targets:
+        RatedSetFormHarness: all
+        RatedSetFormHarnessUITests: [test]
+    test:
+      targets:
+        - RatedSetFormHarnessUITests
+    run:
+      config: Debug
