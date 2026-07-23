@@ -91,7 +91,7 @@ final class RatedSetFormCompositionTests: XCTestCase {
     func testEntryCarriesEquipmentPayload() {
         let entry = RatedSetEntry(reps: 8, rpt: 9, rpe: 6, rpd: 1, notes: "n",
                                   decision: .progress, isometric: false, sliceCount: 0,
-                                  payload: StubWeight.Payload(kg: 16))
+                                  payload: StubWeight.Payload(kg: 16), loggedAt: Date())
         XCTAssertEqual(entry.payload?.kg, 16)
         XCTAssertEqual(entry.decision, .progress)
     }
