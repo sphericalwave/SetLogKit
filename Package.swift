@@ -9,9 +9,10 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/sphericalwave/EquipmentKit.git", branch: "main"),
+        .package(url: "https://github.com/sphericalwave/SwKeyboard.git", branch: "main"),
     ],
     targets: [
-        .target(name: "SetLogKit", dependencies: ["EquipmentKit"]),
+        .target(name: "SetLogKit", dependencies: ["EquipmentKit", "SwKeyboard"]),
         .testTarget(name: "SetLogKitTests", dependencies: ["SetLogKit"]),
     ]
 )
