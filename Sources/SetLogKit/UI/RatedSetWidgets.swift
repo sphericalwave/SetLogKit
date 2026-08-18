@@ -104,6 +104,72 @@ public struct MetricStepperRow: View {
     }
 }
 
+/// Rep tempo: eccentric / bottom-pause / concentric / top-pause, each 0-9
+/// seconds, entered via four small steppers and shown as "3-1-1-0".
+public struct TempoRow: View {
+    @Binding var eccentric: Int
+    @Binding var bottomPause: Int
+    @Binding var concentric: Int
+    @Binding var topPause: Int
+    let info: String
+    @State private var showInfo = false
+
+    public init(eccentric: Binding<Int>, bottomPause: Binding<Int>,
+                concentric: Binding<Int>, topPause: Binding<Int>, info: String = "") {
+        self._eccentric = eccentric
+        self._bottomPause = bottomPause
+        self._concentric = concentric
+        self._topPause = topPause
+        self.info = info
+    }
+
+    public var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Text("Tempo").font(.callout)
+                if !info.isEmpty {
+                    Button { showInfo = true } label: {
+                        Image(systemName: "info.circle").imageScale(.medium)
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(Color.accentColor)
+                    .popover(isPresented: $showInfo) {
+                        Text(info)
+                            .font(.callout)
+                            .padding(.horizontal, 20).padding(.vertical, 16)
+                            .frame(maxWidth: 280)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .presentationCompactAdaptation(.popover)
+                    }
+                }
+                Spacer()
+                Text("\(eccentric)-\(bottomPause)-\(concentric)-\(topPause)")
+                    .monospacedDigit().font(.title3.bold())
+            }
+            HStack(spacing: 0) {
+                phaseStepper("Ecc", $eccentric)
+                Spacer()
+                phaseStepper("Pause", $bottomPause)
+                Spacer()
+                phaseStepper("Con", $concentric)
+                Spacer()
+                phaseStepper("Pause", $topPause)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func phaseStepper(_ label: String, _ value: Binding<Int>) -> some View {
+        VStack(spacing: 4) {
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+            Text("\(value.wrappedValue)").font(.caption).monospacedDigit()
+            Stepper(value: value, in: 0...9) { EmptyView() }
+                .labelsHidden()
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
 /// One heart-rate stat row: label, bpm, and % of max.
 public struct HRStatRow: View {
     let label: String
