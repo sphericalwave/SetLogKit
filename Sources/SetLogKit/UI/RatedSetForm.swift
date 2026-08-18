@@ -68,14 +68,22 @@ public struct RatedSetDraft<Payload: Codable & Equatable & Sendable>: Sendable {
     public let hr: HRStats?
     /// The date the set was logged, prefilled into the date picker when editing.
     public let loggedAt: Date?
+    public let tempoEccentric: Int
+    public let tempoBottomPause: Int
+    public let tempoConcentric: Int
+    public let tempoTopPause: Int
 
     public init(reps: Int, rpt: Int, rpe: Int, rpd: Int, notes: String,
                 decision: ProgressionDecision, isometric: Bool, sliceCount: Int,
-                payload: Payload?, hr: HRStats? = nil, loggedAt: Date? = nil) {
+                payload: Payload?, hr: HRStats? = nil, loggedAt: Date? = nil,
+                tempoEccentric: Int = 0, tempoBottomPause: Int = 0,
+                tempoConcentric: Int = 0, tempoTopPause: Int = 0) {
         self.reps = reps; self.rpt = rpt; self.rpe = rpe; self.rpd = rpd
         self.notes = notes; self.decision = decision; self.isometric = isometric
         self.sliceCount = sliceCount; self.payload = payload; self.hr = hr
         self.loggedAt = loggedAt
+        self.tempoEccentric = tempoEccentric; self.tempoBottomPause = tempoBottomPause
+        self.tempoConcentric = tempoConcentric; self.tempoTopPause = tempoTopPause
     }
 }
 
@@ -92,6 +100,22 @@ public struct RatedSetEntry<Payload: Codable & Equatable & Sendable>: Sendable {
     public let payload: Payload?
     /// The date the user picked for the set (defaults to now for new sets).
     public let loggedAt: Date
+    public let tempoEccentric: Int
+    public let tempoBottomPause: Int
+    public let tempoConcentric: Int
+    public let tempoTopPause: Int
+
+    public init(reps: Int, rpt: Int, rpe: Int, rpd: Int, notes: String,
+                decision: ProgressionDecision, isometric: Bool, sliceCount: Int,
+                payload: Payload?, loggedAt: Date,
+                tempoEccentric: Int = 0, tempoBottomPause: Int = 0,
+                tempoConcentric: Int = 0, tempoTopPause: Int = 0) {
+        self.reps = reps; self.rpt = rpt; self.rpe = rpe; self.rpd = rpd
+        self.notes = notes; self.decision = decision; self.isometric = isometric
+        self.sliceCount = sliceCount; self.payload = payload; self.loggedAt = loggedAt
+        self.tempoEccentric = tempoEccentric; self.tempoBottomPause = tempoBottomPause
+        self.tempoConcentric = tempoConcentric; self.tempoTopPause = tempoTopPause
+    }
 }
 
 // MARK: - Config
@@ -107,6 +131,10 @@ public struct RatedSetFormConfig: Sendable {
     public var equipmentRequired: Bool
     public var repsInfo: String
     public var slicesInfo: String
+    /// Shows the eccentric/pause/concentric/pause tempo row. Off by default
+    /// so existing consumer apps are unaffected.
+    public var showsTempo: Bool
+    public var tempoInfo: String
 
     public init(showsIsometric: Bool = true,
                 showsSlices: Bool = true,
@@ -114,7 +142,9 @@ public struct RatedSetFormConfig: Sendable {
                 showsDecision: Bool = true,
                 equipmentRequired: Bool = false,
                 repsInfo: String = "",
-                slicesInfo: String = "") {
+                slicesInfo: String = "",
+                showsTempo: Bool = false,
+                tempoInfo: String = "") {
         self.showsIsometric = showsIsometric
         self.showsSlices = showsSlices
         self.tedStyle = tedStyle
@@ -122,6 +152,8 @@ public struct RatedSetFormConfig: Sendable {
         self.equipmentRequired = equipmentRequired
         self.repsInfo = repsInfo
         self.slicesInfo = slicesInfo
+        self.showsTempo = showsTempo
+        self.tempoInfo = tempoInfo
     }
 }
 
@@ -149,6 +181,10 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
     @State private var sliceCount = 0
     @State private var payload: Equipment.Payload?
     @State private var loggedAt = Date()
+    @State private var tempoEccentric = 0
+    @State private var tempoBottomPause = 0
+    @State private var tempoConcentric = 0
+    @State private var tempoTopPause = 0
     @State private var didInit = false
 
     @AppStorage(HRConfig.ageKey) private var hrAge = 30
@@ -236,7 +272,9 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
                             reps: reps, rpt: rpt, rpe: rpe, rpd: rpd, notes: notes,
                             decision: decision, isometric: isometric,
                             sliceCount: sliceCount, payload: payload ?? suggestedPayload,
-                            loggedAt: loggedAt
+                            loggedAt: loggedAt,
+                            tempoEccentric: tempoEccentric, tempoBottomPause: tempoBottomPause,
+                            tempoConcentric: tempoConcentric, tempoTopPause: tempoTopPause
                         ))
                         dismiss()
                     }
@@ -271,6 +309,13 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
 
             MetricStepperRow(label: "Reps", value: $reps, range: 0...200, info: config.repsInfo)
                 .accessibilityIdentifier("ratedSetForm.reps")
+
+            if config.showsTempo {
+                TempoRow(eccentric: $tempoEccentric, bottomPause: $tempoBottomPause,
+                         concentric: $tempoConcentric, topPause: $tempoTopPause,
+                         info: config.tempoInfo)
+                    .accessibilityIdentifier("ratedSetForm.tempo")
+            }
 
             if Equipment.self != NoEquipment.self {
                 Equipment.inputView(payload: $payload, suggested: suggestedPayload)
@@ -360,6 +405,8 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
             isometric = edit.isometric; sliceCount = edit.sliceCount
             payload = edit.payload
             loggedAt = edit.loggedAt ?? Date()
+            tempoEccentric = edit.tempoEccentric; tempoBottomPause = edit.tempoBottomPause
+            tempoConcentric = edit.tempoConcentric; tempoTopPause = edit.tempoTopPause
         } else {
             if let last = sortedPrior.last {
                 reps = last.reps; rpt = last.rpt; rpe = last.rpe; rpd = last.rpd
