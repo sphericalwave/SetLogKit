@@ -14,6 +14,16 @@ UI plus the pure-function scoring, progression, and workout-segmenting logic beh
 .package(url: "https://github.com/sphericalwave/SetLogKit.git", branch: "main")
 ```
 
+## Screenshots
+
+<p>
+  <img src="docs/images/rated-set-form.jpg" alt="RatedSetForm" width="280">
+  <img src="docs/images/tempo-detail.jpg" alt="Tempo preset picker" width="280">
+</p>
+
+`RatedSetForm` (score, reps, tempo, equipment, TED metrics, notes, decision) and the
+tempo preset picker pushed from the Tempo row.
+
 ## Overview
 
 - `SetRecord` — read-only face a persisted set presents to SetLogKit's logic; host apps conform their own model (SwiftData `@Model`, CoreData, plain struct)

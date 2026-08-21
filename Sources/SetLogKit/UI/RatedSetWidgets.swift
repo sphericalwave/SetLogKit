@@ -105,7 +105,8 @@ public struct MetricStepperRow: View {
 }
 
 /// Rep tempo: eccentric / bottom-pause / concentric / top-pause, each 0-9
-/// seconds, entered via four small steppers and shown as "3-1-1-0".
+/// seconds. Shown as "3-1-1-0" (or a matching preset's name) and edited by
+/// pushing `TempoDetailView`, a list of predefined presets to tap-select.
 public struct TempoRow: View {
     @Binding var eccentric: Int
     @Binding var bottomPause: Int
@@ -123,8 +124,19 @@ public struct TempoRow: View {
         self.info = info
     }
 
+    private var tempoString: String { "\(eccentric)-\(bottomPause)-\(concentric)-\(topPause)" }
+
+    private var displayValue: String {
+        TempoPreset.all.first {
+            $0.matches(eccentric: eccentric, bottomPause: bottomPause, concentric: concentric, topPause: topPause)
+        }?.label ?? tempoString
+    }
+
     public var body: some View {
-        VStack(spacing: 4) {
+        NavigationLink {
+            TempoDetailView(eccentric: $eccentric, bottomPause: $bottomPause,
+                             concentric: $concentric, topPause: $topPause, info: info)
+        } label: {
             HStack(spacing: 8) {
                 Text("Tempo").font(.callout)
                 if !info.isEmpty {
@@ -143,30 +155,11 @@ public struct TempoRow: View {
                     }
                 }
                 Spacer()
-                Text("\(eccentric)-\(bottomPause)-\(concentric)-\(topPause)")
-                    .monospacedDigit().font(.title3.bold())
-            }
-            HStack(spacing: 0) {
-                phaseStepper("Ecc", $eccentric)
-                Spacer()
-                phaseStepper("Pause", $bottomPause)
-                Spacer()
-                phaseStepper("Con", $concentric)
-                Spacer()
-                phaseStepper("Pause", $topPause)
+                Text(displayValue)
+                    .font(.title3.bold())
+                    .foregroundStyle(.secondary)
             }
         }
-    }
-
-    @ViewBuilder
-    private func phaseStepper(_ label: String, _ value: Binding<Int>) -> some View {
-        VStack(spacing: 4) {
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-            Text("\(value.wrappedValue)").font(.caption).monospacedDigit()
-            Stepper(value: value, in: 0...9) { EmptyView() }
-                .labelsHidden()
-        }
-        .frame(maxWidth: .infinity)
     }
 }
 
