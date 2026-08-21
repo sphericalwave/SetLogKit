@@ -74,7 +74,11 @@ struct ContentView: View {
             equipment: HarnessWeight.self,
             suggestedDecision: .repeat,
             suggestedPayload: HarnessWeight.Payload(kg: 16),
-            config: RatedSetFormConfig(equipmentRequired: true),
+            config: RatedSetFormConfig(
+                equipmentRequired: true,
+                showsTempo: true,
+                tempoInfo: "Seconds per phase: eccentric (lowering) · pause at bottom · concentric (lifting) · pause at top. E.g. 3-1-1-0."
+            ),
             header: { Image(systemName: "figure.strengthtraining.traditional") },
             onSave: { _ in }
         )
