@@ -204,7 +204,6 @@ public struct WeightSetupInput: View {
                       prompt: Text(weightPlaceholder))
                 #if os(iOS)
                 .keyboardType(.decimalPad)
-                .doneKeyboardToolbar()
                 #endif
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 80)
@@ -231,7 +230,6 @@ public struct WeightSetupInput: View {
                       prompt: Text(anglePlaceholder))
                 #if os(iOS)
                 .keyboardType(.decimalPad)
-                .doneKeyboardToolbar()
                 #endif
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 80)

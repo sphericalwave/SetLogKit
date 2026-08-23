@@ -14,6 +14,7 @@
 
 import SwiftUI
 import EquipmentKit
+import SwKeyboard
 
 // MARK: - What the form reads from an app's skill
 
@@ -284,6 +285,7 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
                 }
             }
             .scrollDismissesKeyboard(.interactively)
+            .doneKeyboardToolbar()
             .onAppear(perform: initStateIfNeeded)
         }
     }
