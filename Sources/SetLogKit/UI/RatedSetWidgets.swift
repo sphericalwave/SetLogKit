@@ -156,8 +156,10 @@ public struct TempoRow: View {
                 }
                 Spacer()
                 Text(displayValue)
-                    .font(.title3.bold())
+                    .font(.callout)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
         }
     }
