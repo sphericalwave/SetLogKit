@@ -14,7 +14,6 @@
 
 import SwiftUI
 import EquipmentKit
-import SwKeyboard
 
 // MARK: - What the form reads from an app's skill
 
@@ -188,6 +187,12 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
     @State private var tempoTopPause = 0
     @State private var didInit = false
 
+    // Last saved tempo, carried into the next new set (any skill).
+    @AppStorage("setLog.lastTempo.eccentric") private var lastTempoEccentric = 0
+    @AppStorage("setLog.lastTempo.bottomPause") private var lastTempoBottomPause = 0
+    @AppStorage("setLog.lastTempo.concentric") private var lastTempoConcentric = 0
+    @AppStorage("setLog.lastTempo.topPause") private var lastTempoTopPause = 0
+
     @AppStorage(HRConfig.ageKey) private var hrAge = 30
     @AppStorage(HRConfig.overrideKey) private var hrMaxOverride = 0
     @Environment(\.dismiss) private var dismiss
@@ -269,6 +274,10 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
+                        lastTempoEccentric = tempoEccentric
+                        lastTempoBottomPause = tempoBottomPause
+                        lastTempoConcentric = tempoConcentric
+                        lastTempoTopPause = tempoTopPause
                         onSave(RatedSetEntry(
                             reps: reps, rpt: rpt, rpe: rpe, rpd: rpd, notes: notes,
                             decision: decision, isometric: isometric,
@@ -285,7 +294,6 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
                 }
             }
             .scrollDismissesKeyboard(.interactively)
-            .doneKeyboardToolbar()
             .onAppear(perform: initStateIfNeeded)
         }
     }
@@ -416,6 +424,10 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
             decision = suggestedDecision
             isometric = initialIsometric
             sliceCount = skill.defaultSliceCount
+            tempoEccentric = lastTempoEccentric
+            tempoBottomPause = lastTempoBottomPause
+            tempoConcentric = lastTempoConcentric
+            tempoTopPause = lastTempoTopPause
         }
     }
 }
