@@ -105,8 +105,8 @@ public struct MetricStepperRow: View {
 }
 
 /// Rep tempo: eccentric / bottom-pause / concentric / top-pause, each 0-9
-/// seconds. Shown as "3-1-1-0" (or a matching preset's name) and edited by
-/// pushing `TempoDetailView`, a list of predefined presets to tap-select.
+/// seconds. Shown as "3-1-1-0" with an optional matching preset name as a
+/// small subtitle, and edited by pushing `TempoDetailView`.
 public struct TempoRow: View {
     @Binding var eccentric: Int
     @Binding var bottomPause: Int
@@ -126,10 +126,14 @@ public struct TempoRow: View {
 
     private var tempoString: String { "\(eccentric)-\(bottomPause)-\(concentric)-\(topPause)" }
 
-    private var displayValue: String {
-        TempoPreset.all.first {
-            $0.matches(eccentric: eccentric, bottomPause: bottomPause, concentric: concentric, topPause: topPause)
-        }?.label ?? tempoString
+    /// Matching preset label when the current phases land on a named scheme.
+    /// Skips "None" so 0-0-0-0 stays just the numbers.
+    private var presetSubtitle: String? {
+        guard let preset = TempoPreset.all.first(where: {
+            $0.matches(eccentric: eccentric, bottomPause: bottomPause,
+                       concentric: concentric, topPause: topPause)
+        }), preset.label != "None" else { return nil }
+        return preset.label
     }
 
     public var body: some View {
@@ -155,11 +159,18 @@ public struct TempoRow: View {
                     }
                 }
                 Spacer()
-                Text(displayValue)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(tempoString)
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    if let subtitle = presetSubtitle {
+                        Text(subtitle)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                    }
+                }
             }
         }
     }
