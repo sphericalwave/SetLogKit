@@ -114,6 +114,10 @@ final class TempoCoachModel {
             currentRep = nextRep
 
             while nextBeat < beats.count {
+                // A sleep that already completed doesn't throw, so a pause
+                // landing in that window would otherwise get one more beat
+                // spoken out of it.
+                if Task.isCancelled { return }
                 let beat = beats[nextBeat]
                 phase = beat.phase
                 beatIndex = beat.index
@@ -124,6 +128,7 @@ final class TempoCoachModel {
                 nextBeat += 1
             }
 
+            if Task.isCancelled { return }
             completedReps = nextRep
             // Target reached is a marker, not an ending — the set runs until
             // it's stopped, and the reps past target are the ones that count.

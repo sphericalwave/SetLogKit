@@ -19,13 +19,14 @@ final class FakeTempoVoice: TempoVoice {
 @MainActor
 final class TempoCoachModelTests: XCTestCase {
 
-    /// One beat per 5ms so a whole set runs inside a test.
+    /// One beat per 10ms so a whole set runs inside a test, with enough margin
+    /// over the 1ms poll below to stay honest on a loaded CI runner.
     private func makeCoach(tempo: SetTempo = SetTempo(eccentric: 1, bottomPause: 0,
                                                       concentric: 1, topPause: 0),
                            targetReps: Int = 3,
                            voice: FakeTempoVoice) -> TempoCoachModel {
         TempoCoachModel(tempo: tempo, targetReps: targetReps,
-                        voice: voice, beatDuration: .milliseconds(5))
+                        voice: voice, beatDuration: .milliseconds(10))
     }
 
     private func wait(upTo timeout: Duration = .seconds(5),
@@ -124,7 +125,7 @@ final class TempoCoachModelTests: XCTestCase {
         XCTAssertTrue(coach.isPaused)
         let atPause = voice.spoken.count
 
-        try await Task.sleep(for: .milliseconds(30))
+        try await Task.sleep(for: .milliseconds(100))
         XCTAssertEqual(voice.spoken.count, atPause, "no beats while paused")
 
         coach.resume()
