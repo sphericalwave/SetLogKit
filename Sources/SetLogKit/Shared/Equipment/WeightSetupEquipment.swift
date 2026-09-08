@@ -202,9 +202,7 @@ public struct WeightSetupInput: View {
             Spacer()
             TextField("lbs", value: magnitude, format: .number,
                       prompt: Text(weightPlaceholder))
-                #if os(iOS)
-                .keyboardType(.decimalPad)
-                #endif
+                .decimalKeyboard()
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 80)
             Text("lb").foregroundStyle(.secondary)
@@ -228,9 +226,7 @@ public struct WeightSetupInput: View {
             Spacer()
             TextField("deg", value: angleMagnitude, format: .number,
                       prompt: Text(anglePlaceholder))
-                #if os(iOS)
-                .keyboardType(.decimalPad)
-                #endif
+                .decimalKeyboard()
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 80)
             Text("°").foregroundStyle(.secondary)
