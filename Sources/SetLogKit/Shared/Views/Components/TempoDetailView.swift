@@ -59,8 +59,6 @@ struct TempoDetailView: View {
             }
         }
         .navigationTitle("Tempo")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        .inlineNavTitle()
     }
 }

@@ -37,6 +37,26 @@ tempo preset picker pushed from the Tempo row.
 - `HRConfig` / `HRStats` — heart-rate stats display config
 - UI widgets: `CompletionChip`, `TEDMetricStepper`, `MetricStepperRow`, `HRStatRow`, `TEDDescription`
 
+## Source layout
+
+Views are split by platform; everything else is shared and platform-agnostic.
+
+```
+Sources/SetLogKit/
+  Shared/    Scoring, Progression, Records, Equipment, ViewModels,
+             RatedSetFormTypes (the public contract),
+             RatedSetFormSections (the fields both platforms show),
+             Views/Components (widgets that render identically)
+  iOS/       RatedSetForm — nav-bar chrome, sheet sized by the system
+  macOS/     RatedSetForm — pinned sheet size, grouped form, bottom
+             Cancel/Save bar
+```
+
+Both platform files declare the same public `RatedSetForm`, each guarded by
+`#if os(...)`, so consumers see one type with one initializer. `#if` inside a
+shared view body is not the pattern here — the only exceptions are the
+cosmetic shims in `Shared/Modifiers/PlatformModifiers.swift`.
+
 ## Dependencies
 
 - [EquipmentKit](https://github.com/sphericalwave/EquipmentKit) (remote, branch `main`)
