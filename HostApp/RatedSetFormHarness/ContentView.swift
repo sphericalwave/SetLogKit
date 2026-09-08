@@ -77,7 +77,8 @@ struct ContentView: View {
             config: RatedSetFormConfig(
                 equipmentRequired: true,
                 showsTempo: true,
-                tempoInfo: "Seconds per phase: eccentric (lowering) · pause at bottom · concentric (lifting) · pause at top. E.g. 3-1-1-0."
+                tempoInfo: "Seconds per phase: eccentric (lowering) · pause at bottom · concentric (lifting) · pause at top. E.g. 3-1-1-0.",
+                showsTempoCoach: true
             ),
             header: { Image(systemName: "figure.strengthtraining.traditional") },
             onSave: { _ in }

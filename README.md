@@ -35,6 +35,8 @@ tempo preset picker pushed from the Tempo row.
 - `WorkoutSegmenter` / `WorkoutSegment` — segments a workout's logged sets
 - `FalseColor` — false-color mapping for metric visualization
 - `HRConfig` / `HRStats` — heart-rate stats display config
+- `TempoCoachView` — guided rep counter: speaks the set's tempo aloud one beat per second ("rep three, lower / two / three / hold / extend"), counts the reps you finish, and writes the count back into the form's Reps field. Enable with `RatedSetFormConfig(showsTempo: true, showsTempoCoach: true)`
+- `TempoScript` / `TempoPhase` / `TempoPhaseNames` — the cue script behind it: pure, per-second beats with substitutable phase wording. Zero-second phases are skipped; the target rep count marks a cue but doesn't end the set, so an overrun still counts
 - UI widgets: `CompletionChip`, `TEDMetricStepper`, `MetricStepperRow`, `HRStatRow`, `TEDDescription`
 
 ## Source layout
@@ -46,20 +48,24 @@ Sources/SetLogKit/
   Shared/    Scoring, Progression, Records, Equipment, ViewModels,
              RatedSetFormTypes (the public contract),
              RatedSetFormSections (the fields both platforms show),
+             Tempo (the coach's cue script, beat clock, and voice seam),
              Views/Components (widgets that render identically)
   iOS/       RatedSetForm — nav-bar chrome, sheet sized by the system
+             TempoCoach — full-screen readout, large bottom action button
   macOS/     RatedSetForm — pinned sheet size, grouped form, bottom
              Cancel/Save bar
+             TempoCoach — pinned sheet size, bottom action bar
 ```
 
-Both platform files declare the same public `RatedSetForm`, each guarded by
-`#if os(...)`, so consumers see one type with one initializer. `#if` inside a
+Both platform files declare the same public type — `RatedSetForm`, `TempoCoachView` —
+each guarded by `#if os(...)`, so consumers see one type with one initializer. `#if` inside a
 shared view body is not the pattern here — the only exceptions are the
 cosmetic shims in `Shared/Modifiers/PlatformModifiers.swift`.
 
 ## Dependencies
 
 - [EquipmentKit](https://github.com/sphericalwave/EquipmentKit) (remote, branch `main`)
+- [WorkoutAudioKit](https://github.com/sphericalwave/WorkoutAudioKit) (remote, branch `main`) — the tempo coach's speech and tones
 
 ## Host app
 

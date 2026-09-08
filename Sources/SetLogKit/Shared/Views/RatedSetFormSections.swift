@@ -19,6 +19,8 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
     let header: () -> Header
     @Bindable var model: RatedSetFormModel<Equipment.Payload>
 
+    @State private var showTempoCoach = false
+
     private var lastNote: String? {
         skill.priorSets.sorted { $0.loggedAt < $1.loggedAt }.reversed().lazy
             .compactMap(\.notes)
@@ -79,6 +81,31 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
                          concentric: $model.tempoConcentric, topPause: $model.tempoTopPause,
                          info: config.tempoInfo)
                     .accessibilityIdentifier("ratedSetForm.tempo")
+
+                if config.showsTempoCoach && !model.tempoIsEmpty {
+                    Button {
+                        showTempoCoach = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "waveform")
+                            Text("Start tempo coach")
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("ratedSetForm.tempoCoach")
+                    .sheet(isPresented: $showTempoCoach) {
+                        TempoCoachView(
+                            eccentric: model.tempoEccentric,
+                            bottomPause: model.tempoBottomPause,
+                            concentric: model.tempoConcentric,
+                            topPause: model.tempoTopPause,
+                            targetReps: model.reps,
+                            onFinish: { model.reps = $0 }
+                        )
+                    }
+                }
             }
 
             if Equipment.self != NoEquipment.self {

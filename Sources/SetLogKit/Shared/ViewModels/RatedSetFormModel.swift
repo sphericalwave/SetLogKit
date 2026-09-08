@@ -88,4 +88,10 @@ final class RatedSetFormModel<Payload: Codable & Equatable & Sendable> {
         Tempo(eccentric: tempoEccentric, bottomPause: tempoBottomPause,
               concentric: tempoConcentric, topPause: tempoTopPause)
     }
+
+    /// No phase has any seconds in it — nothing for the tempo coach to call out.
+    var tempoIsEmpty: Bool {
+        SetTempo(eccentric: tempoEccentric, bottomPause: tempoBottomPause,
+                 concentric: tempoConcentric, topPause: tempoTopPause).isEmpty
+    }
 }
