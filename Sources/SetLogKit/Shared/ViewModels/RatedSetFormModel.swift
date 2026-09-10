@@ -29,24 +29,23 @@ final class RatedSetFormModel<Payload: Codable & Equatable & Sendable> {
 
     private var didInit = false
 
-    /// Four tempo phases carried forward from the last saved set, whatever the
-    /// skill — the views read them from `@AppStorage` and pass them in.
-    struct Tempo {
-        var eccentric: Int
-        var bottomPause: Int
-        var concentric: Int
-        var topPause: Int
-    }
+    /// Four tempo phases. `lastTempo` is the global carry-forward from the last
+    /// saved set (any skill); `suggestedTempo`, when a host supplies it, is a
+    /// per-exercise tempo that takes precedence for a new set.
+    typealias Tempo = TempoValue
 
-    /// Seeds the form once: from the set being edited, or from the skill's
-    /// last set plus the carried-forward tempo when logging a new one.
+    /// Seeds the form once: from the set being edited, or — for a new set —
+    /// from the skill's last set plus a tempo. The tempo seed is
+    /// `suggestedTempo` when the host passed one (a per-exercise tempo),
+    /// otherwise the global `lastTempo` carry-forward.
     /// Re-entrant on purpose — `onAppear` can fire more than once.
     func initIfNeeded(editing: RatedSetDraft<Payload>?,
                       priorSets: [PriorSet],
                       defaultSliceCount: Int,
                       suggestedDecision: ProgressionDecision,
                       initialIsometric: Bool,
-                      lastTempo: Tempo) {
+                      lastTempo: Tempo,
+                      suggestedTempo: Tempo? = nil) {
         guard !didInit else { return }
         didInit = true
         if let edit = editing {
@@ -64,10 +63,11 @@ final class RatedSetFormModel<Payload: Codable & Equatable & Sendable> {
             decision = suggestedDecision
             isometric = initialIsometric
             sliceCount = defaultSliceCount
-            tempoEccentric = lastTempo.eccentric
-            tempoBottomPause = lastTempo.bottomPause
-            tempoConcentric = lastTempo.concentric
-            tempoTopPause = lastTempo.topPause
+            let seed = suggestedTempo ?? lastTempo
+            tempoEccentric = seed.eccentric
+            tempoBottomPause = seed.bottomPause
+            tempoConcentric = seed.concentric
+            tempoTopPause = seed.topPause
         }
     }
 
@@ -90,8 +90,5 @@ final class RatedSetFormModel<Payload: Codable & Equatable & Sendable> {
     }
 
     /// No phase has any seconds in it — nothing for the tempo coach to call out.
-    var tempoIsEmpty: Bool {
-        SetTempo(eccentric: tempoEccentric, bottomPause: tempoBottomPause,
-                 concentric: tempoConcentric, topPause: tempoTopPause).isEmpty
-    }
+    var tempoIsEmpty: Bool { tempo.isEmpty }
 }

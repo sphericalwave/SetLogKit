@@ -16,6 +16,7 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
     let suggestedPayload: Equipment.Payload?
     let hr: HRStats?
     let maxHR: Int
+    var tempoPresets: TempoPresetLibrary = .none
     let header: () -> Header
     @Bindable var model: RatedSetFormModel<Equipment.Payload>
 
@@ -79,7 +80,7 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
             if config.showsTempo {
                 TempoRow(eccentric: $model.tempoEccentric, bottomPause: $model.tempoBottomPause,
                          concentric: $model.tempoConcentric, topPause: $model.tempoTopPause,
-                         info: config.tempoInfo)
+                         info: config.tempoInfo, library: tempoPresets)
                     .accessibilityIdentifier("ratedSetForm.tempo")
 
                 if config.showsTempoCoach && !model.tempoIsEmpty {

@@ -27,6 +27,8 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
     private let suggestedPayload: Equipment.Payload?
     private let liveHR: HRStats?
     private let config: RatedSetFormConfig
+    private let suggestedTempo: TempoValue?
+    private let tempoPresets: TempoPresetLibrary
     private let initialIsometric: Bool
     private let header: () -> Header
     private let onSave: (RatedSetEntry<Equipment.Payload>) -> Void
@@ -52,6 +54,8 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
         suggestedPayload: Equipment.Payload? = nil,
         liveHR: HRStats? = nil,
         config: RatedSetFormConfig = .init(),
+        suggestedTempo: TempoValue? = nil,
+        tempoPresets: TempoPresetLibrary = .none,
         initialIsometric: Bool = false,
         @ViewBuilder header: @escaping () -> Header,
         onSave: @escaping (RatedSetEntry<Equipment.Payload>) -> Void,
@@ -63,6 +67,8 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
         self.suggestedPayload = suggestedPayload
         self.liveHR = liveHR
         self.config = config
+        self.suggestedTempo = suggestedTempo
+        self.tempoPresets = tempoPresets
         self.initialIsometric = initialIsometric
         self.header = header
         self.onSave = onSave
@@ -87,6 +93,7 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
                         suggestedPayload: suggestedPayload,
                         hr: resolvedHR,
                         maxHR: HRConfig.effectiveMax(age: hrAge, manualOverride: hrMaxOverride),
+                        tempoPresets: tempoPresets,
                         header: header,
                         model: model
                     )
@@ -121,7 +128,8 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
             suggestedDecision: suggestedDecision,
             initialIsometric: initialIsometric,
             lastTempo: .init(eccentric: lastTempoEccentric, bottomPause: lastTempoBottomPause,
-                             concentric: lastTempoConcentric, topPause: lastTempoTopPause)
+                             concentric: lastTempoConcentric, topPause: lastTempoTopPause),
+            suggestedTempo: suggestedTempo
         )
     }
 

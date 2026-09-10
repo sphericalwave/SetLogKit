@@ -37,6 +37,8 @@ tempo preset picker pushed from the Tempo row.
 - `HRConfig` / `HRStats` — heart-rate stats display config
 - `TempoCoachView` — guided rep counter: speaks the set's tempo aloud one beat per second ("rep three, lower / two / three / hold / extend"), counts the reps you finish, and writes the count back into the form's Reps field. Enable with `RatedSetFormConfig(showsTempo: true, showsTempoCoach: true)`
 - `TempoScript` / `TempoPhase` / `TempoPhaseNames` — the cue script behind it: pure, per-second beats with substitutable phase wording. Zero-second phases are skipped; the target rep count marks a cue but doesn't end the set, so an overrun still counts
+- `RatedSetForm(suggestedTempo:)` — a `TempoValue` the form uses to seed a *new* set's tempo from a per-exercise value, in place of the global `setLog.lastTempo` carry-forward. Editing a set still takes tempo from the draft
+- `TempoPreset` / `TempoPresetLibrary` — the tempo picker's presets. Pass `RatedSetForm(tempoPresets:)` (or `TempoRow(library:)`) a library with the host's `custom` presets plus `onAdd` / `onDelete` for an "Add tempo" affordance and swipe-to-delete on custom rows; the host owns where they persist
 - UI widgets: `CompletionChip`, `TEDMetricStepper`, `MetricStepperRow`, `HRStatRow`, `TEDDescription`
 
 ## Source layout
