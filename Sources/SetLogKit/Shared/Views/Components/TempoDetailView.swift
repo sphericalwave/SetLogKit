@@ -109,6 +109,7 @@ private struct AddTempoSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var label = ""
+    @State private var detail = ""
     @State private var eccentric = 3
     @State private var bottomPause = 1
     @State private var concentric = 1
@@ -116,6 +117,9 @@ private struct AddTempoSheet: View {
 
     private var trimmedLabel: String {
         label.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    private var trimmedDetail: String {
+        detail.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     private var isEmpty: Bool {
         eccentric == 0 && bottomPause == 0 && concentric == 0 && topPause == 0
@@ -127,6 +131,9 @@ private struct AddTempoSheet: View {
                 Section {
                     TextField("Name", text: $label)
                         .accessibilityIdentifier("addTempo.name")
+                    TextField("Description (optional)", text: $detail, axis: .vertical)
+                        .lineLimit(1...3)
+                        .accessibilityIdentifier("addTempo.detail")
                 }
                 Section {
                     MetricStepperRow(label: "Eccentric", value: $eccentric, range: 0...9)
@@ -150,7 +157,7 @@ private struct AddTempoSheet: View {
                             label: trimmedLabel,
                             eccentric: eccentric, bottomPause: bottomPause,
                             concentric: concentric, topPause: topPause,
-                            description: "", isCustom: true
+                            description: trimmedDetail, isCustom: true
                         ))
                         dismiss()
                     }
