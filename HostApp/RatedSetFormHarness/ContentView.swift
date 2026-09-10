@@ -68,6 +68,12 @@ struct HarnessWeightInput: View {
 }
 
 struct ContentView: View {
+    // Stands in for the host's custom-preset store (gpp: a CloudKit model).
+    @State private var customTempos: [TempoPreset] = [
+        TempoPreset(label: "Grinder", eccentric: 4, bottomPause: 1, concentric: 2, topPause: 0,
+                    description: "", isCustom: true)
+    ]
+
     var body: some View {
         RatedSetForm(
             skill: HarnessSkill(),
@@ -79,6 +85,17 @@ struct ContentView: View {
                 showsTempo: true,
                 tempoInfo: "Seconds per phase: eccentric (lowering) · pause at bottom · concentric (lifting) · pause at top. E.g. 3-1-1-0.",
                 showsTempoCoach: true
+            ),
+            suggestedTempo: TempoValue(eccentric: 3, bottomPause: 1, concentric: 2, topPause: 0),
+            tempoPresets: TempoPresetLibrary(
+                custom: customTempos,
+                onAdd: { customTempos.append($0) },
+                onDelete: { preset in
+                    customTempos.removeAll {
+                        $0.matches(eccentric: preset.eccentric, bottomPause: preset.bottomPause,
+                                   concentric: preset.concentric, topPause: preset.topPause)
+                    }
+                }
             ),
             header: { Image(systemName: "figure.strengthtraining.traditional") },
             onSave: { _ in }

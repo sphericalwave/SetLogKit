@@ -113,23 +113,27 @@ public struct TempoRow: View {
     @Binding var concentric: Int
     @Binding var topPause: Int
     let info: String
+    let library: TempoPresetLibrary
     @State private var showInfo = false
 
     public init(eccentric: Binding<Int>, bottomPause: Binding<Int>,
-                concentric: Binding<Int>, topPause: Binding<Int>, info: String = "") {
+                concentric: Binding<Int>, topPause: Binding<Int>, info: String = "",
+                library: TempoPresetLibrary = .none) {
         self._eccentric = eccentric
         self._bottomPause = bottomPause
         self._concentric = concentric
         self._topPause = topPause
         self.info = info
+        self.library = library
     }
 
     private var tempoString: String { "\(eccentric)-\(bottomPause)-\(concentric)-\(topPause)" }
 
-    /// Matching preset label when the current phases land on a named scheme.
-    /// Skips "None" so 0-0-0-0 stays just the numbers.
+    /// Matching preset label when the current phases land on a named scheme —
+    /// built-in or one of the host's custom presets. Skips "None" so 0-0-0-0
+    /// stays just the numbers.
     private var presetSubtitle: String? {
-        guard let preset = TempoPreset.all.first(where: {
+        guard let preset = (TempoPreset.all + library.custom).first(where: {
             $0.matches(eccentric: eccentric, bottomPause: bottomPause,
                        concentric: concentric, topPause: topPause)
         }), preset.label != "None" else { return nil }
@@ -139,7 +143,8 @@ public struct TempoRow: View {
     public var body: some View {
         NavigationLink {
             TempoDetailView(eccentric: $eccentric, bottomPause: $bottomPause,
-                             concentric: $concentric, topPause: $topPause, info: info)
+                             concentric: $concentric, topPause: $topPause,
+                             info: info, library: library)
         } label: {
             HStack(spacing: 8) {
                 Text("Tempo").font(.callout)
