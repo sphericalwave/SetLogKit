@@ -71,7 +71,7 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
                 }
             }
 
-            DatePicker("Date", selection: $model.loggedAt, displayedComponents: .date)
+            DatePicker("Logged", selection: $model.loggedAt, displayedComponents: [.date, .hourAndMinute])
                 .accessibilityIdentifier("ratedSetForm.date")
 
             MetricStepperRow(label: "Reps", value: $model.reps, range: 0...200, info: config.repsInfo)
