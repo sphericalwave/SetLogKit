@@ -21,26 +21,46 @@ struct TempoDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingAdd = false
 
-    private var presets: [TempoPreset] { TempoPreset.all + library.custom }
-
     var body: some View {
         List {
             Section {
-                ForEach(presets) { preset in
+                ForEach(TempoPreset.reps) { preset in
                     row(for: preset)
                 }
-                if library.isEditable {
-                    Button {
-                        showingAdd = true
-                    } label: {
-                        Label("Add tempo", systemImage: "plus")
-                            .font(.headline)
-                    }
-                    .accessibilityIdentifier("tempoDetail.add")
+            } header: {
+                Text("Rep tempo")
+            }
+
+            Section {
+                ForEach(TempoPreset.isometrics) { preset in
+                    row(for: preset)
                 }
+            } header: {
+                Text("Isometric strength")
             } footer: {
-                if !info.isEmpty {
-                    Text(info)
+                Text("One held position instead of reps — the coach counts the hold out.")
+            }
+
+            if !library.custom.isEmpty || library.isEditable {
+                Section {
+                    ForEach(library.custom) { preset in
+                        row(for: preset)
+                    }
+                    if library.isEditable {
+                        Button {
+                            showingAdd = true
+                        } label: {
+                            Label("Add tempo", systemImage: "plus")
+                                .font(.headline)
+                        }
+                        .accessibilityIdentifier("tempoDetail.add")
+                    }
+                } header: {
+                    Text("Custom")
+                } footer: {
+                    if !info.isEmpty {
+                        Text(info)
+                    }
                 }
             }
         }
@@ -102,7 +122,35 @@ struct TempoDetailView: View {
     }
 }
 
-/// Name + four phase steppers for a new custom tempo. Kept here rather than a
+/// One phase of a custom tempo: type the seconds directly, or step by one.
+/// A 90-second hold is 90 taps on a stepper alone, hence the field.
+private struct PhaseDurationRow: View {
+    let label: String
+    @Binding var value: Int
+
+    static let range = 0...90
+
+    var body: some View {
+        Stepper(value: $value, in: Self.range) {
+            HStack {
+                Text(label).font(.callout)
+                Spacer()
+                TextField("0", value: $value, format: .number)
+                    .decimalKeyboard()
+                    .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                    .frame(width: 48)
+                    .onChange(of: value) { _, new in
+                        let clamped = min(max(new, Self.range.lowerBound), Self.range.upperBound)
+                        if clamped != new { value = clamped }
+                    }
+                Text("s").foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+/// Name + four phase rows for a new custom tempo. Kept here rather than a
 /// file of its own — it's only ever reached from `TempoDetailView`.
 private struct AddTempoSheet: View {
     let onSave: (TempoPreset) -> Void
@@ -136,10 +184,10 @@ private struct AddTempoSheet: View {
                         .accessibilityIdentifier("addTempo.detail")
                 }
                 Section {
-                    MetricStepperRow(label: "Eccentric", value: $eccentric, range: 0...9)
-                    MetricStepperRow(label: "Bottom pause", value: $bottomPause, range: 0...9)
-                    MetricStepperRow(label: "Concentric", value: $concentric, range: 0...9)
-                    MetricStepperRow(label: "Top pause", value: $topPause, range: 0...9)
+                    PhaseDurationRow(label: "Eccentric", value: $eccentric)
+                    PhaseDurationRow(label: "Bottom pause", value: $bottomPause)
+                    PhaseDurationRow(label: "Concentric", value: $concentric)
+                    PhaseDurationRow(label: "Top pause", value: $topPause)
                 } footer: {
                     Text("\(eccentric)-\(bottomPause)-\(concentric)-\(topPause) — seconds per phase.")
                         .monospacedDigit()

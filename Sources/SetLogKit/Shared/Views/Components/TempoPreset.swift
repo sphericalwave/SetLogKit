@@ -38,7 +38,7 @@ public struct TempoPreset: Identifiable, Equatable, Sendable {
     public let topPause: Int
     public let description: String
     /// True for host-supplied presets — the picker lets those be deleted, the
-    /// seven built-ins can't be.
+    /// built-ins can't be.
     public let isCustom: Bool
 
     public init(label: String, eccentric: Int, bottomPause: Int, concentric: Int, topPause: Int,
@@ -60,7 +60,9 @@ public struct TempoPreset: Identifiable, Equatable, Sendable {
             && self.concentric == concentric && self.topPause == topPause
     }
 
-    public static let all: [TempoPreset] = [
+    /// Rep-cadence presets — a lowering and a lifting phase with optional
+    /// pauses. Shown under their own heading in the picker.
+    public static let reps: [TempoPreset] = [
         .init(label: "None", eccentric: 0, bottomPause: 0, concentric: 0, topPause: 0,
               description: "Not tracking tempo for this set."),
         .init(label: "Moderate", eccentric: 2, bottomPause: 0, concentric: 2, topPause: 0,
@@ -76,6 +78,20 @@ public struct TempoPreset: Identifiable, Equatable, Sendable {
         .init(label: "Eccentric overload", eccentric: 5, bottomPause: 0, concentric: 1, topPause: 0,
               description: "Very slow lowering, fast lift."),
     ]
+
+    /// Held positions rather than reps — the whole set is one pause, so the
+    /// coach counts the hold out and nothing else.
+    public static let isometrics: [TempoPreset] = [
+        .init(label: "30 seconds", eccentric: 0, bottomPause: 30, concentric: 0, topPause: 0,
+              description: "A 30-second hold in position."),
+        .init(label: "60 seconds", eccentric: 0, bottomPause: 60, concentric: 0, topPause: 0,
+              description: "A 60-second hold in position."),
+        .init(label: "90 seconds", eccentric: 0, bottomPause: 90, concentric: 0, topPause: 0,
+              description: "A 90-second hold in position."),
+    ]
+
+    /// Every built-in, in picker order — what a lookup by phase values scans.
+    public static let all: [TempoPreset] = reps + isometrics
 }
 
 /// A host's custom tempo presets plus the hooks to add and remove them. The
