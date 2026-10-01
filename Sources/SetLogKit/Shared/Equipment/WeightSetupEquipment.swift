@@ -79,6 +79,30 @@ public enum WeightSetupEquipment: EquipmentModel {
         return deg < 0 ? "\(mag)° decline" : "\(mag)° incline"
     }
 
+    /// Total load (bodyweight + signed added load) as a percentage of
+    /// bodyweight: bar at bodyweight on a squat is 200%, a 30 lb assist at
+    /// 180 lb bodyweight is ~83%. Nil without a bodyweight.
+    public static func percentOfBodyweight(addedLbs: Double, bodyweightLbs: Double) -> Double? {
+        guard bodyweightLbs > 0 else { return nil }
+        return (bodyweightLbs + addedLbs) / bodyweightLbs * 100
+    }
+
+    /// The added load after stepping the total by `points` percentage points
+    /// of bodyweight. Snaps to the step grid (153.4% +1 → 154%, not 154.4%) so
+    /// repeated taps land on round percentages, never below 0% total, and
+    /// rounds to 0.1 lb. Result is signed: below 100% it's assistance.
+    public static func addedLoad(steppingPercent points: Double, from addedLbs: Double, bodyweightLbs: Double) -> Double {
+        guard let pct = percentOfBodyweight(addedLbs: addedLbs, bodyweightLbs: bodyweightLbs),
+              points != 0 else { return addedLbs }
+        let step = abs(points)
+        let slot = pct / step
+        let eps = 1e-6
+        let target = points > 0 ? ((slot + eps).rounded(.down) + 1) * step
+                                : ((slot - eps).rounded(.up) - 1) * step
+        let added = bodyweightLbs * max(target, 0) / 100 - bodyweightLbs
+        return (added * 10).rounded() / 10
+    }
+
     public static func summary(_ p: Payload) -> String {
         var parts: [String] = []
         if p.weightLbs != 0 { parts.append(loadLabel(p.weightLbs)) }
@@ -238,14 +262,46 @@ public struct WeightSetupInput: View {
         }
     }
 
+    /// Percentage points of bodyweight per stepper tap on the Total row.
+    private static let percentStep: Double = 1
+
+    /// What saves if the user stops here: the entered payload, else the
+    /// suggested one RatedSetForm falls back to.
+    private var effective: WeightSetupEquipment.Payload {
+        payload ?? suggested ?? .init(weightLbs: 0, setupNotes: "")
+    }
+
+    /// Steps the total load (bodyweight + added) by percentage points of
+    /// bodyweight, starting from what would save now. Always writes a
+    /// payload — even an all-zero one — so stepping to exactly bodyweight
+    /// saves 0 added load instead of falling back to the suggestion.
+    private func stepPercent(_ points: Double) {
+        var p = effective
+        p.weightLbs = WeightSetupEquipment.addedLoad(steppingPercent: points, from: p.weightLbs,
+                                                     bodyweightLbs: weightContext.bodyweightLbs)
+        assistMode = p.weightLbs < 0
+        payload = p
+    }
+
     private var totalRow: some View {
-        let total = weightContext.bodyweightLbs + (payload?.weightLbs ?? 0)
-        return HStack {
-            Text("Total").font(.callout)
-            Spacer()
-            Text("\(total, format: .number.precision(.fractionLength(0...1))) lb")
-                .foregroundStyle(.secondary)
+        let added = effective.weightLbs
+        let total = weightContext.bodyweightLbs + added
+        let pct = WeightSetupEquipment.percentOfBodyweight(addedLbs: added,
+                                                           bodyweightLbs: weightContext.bodyweightLbs) ?? 0
+        return Stepper {
+            HStack {
+                Text("Total").font(.callout)
+                Spacer()
+                Text("\(total, format: .number.precision(.fractionLength(0...1))) lb · \(pct, format: .number.precision(.fractionLength(0...1)))%")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+        } onIncrement: {
+            stepPercent(Self.percentStep)
+        } onDecrement: {
+            stepPercent(-Self.percentStep)
         }
+        .accessibilityHint("Adjusts total load by \(Int(Self.percentStep)) percent of bodyweight")
     }
 
     private var setupRow: some View {
