@@ -19,16 +19,21 @@ import SwKeyboard
 /// sheet. `bodyweightLoaded` shows a total-with-bodyweight readout and an
 /// Added/Assist toggle for lifts where you hoist your own bodyweight.
 /// `trackAngle` shows the Incline/Decline angle field for equipment where
-/// angle matters (incline/decline bench press).
+/// angle matters (incline/decline bench press). `missingBodyweightHint`
+/// is shown in place of the %-of-bodyweight stepper while `bodyweightLbs`
+/// is 0, telling the user where to set it; nil hides the row silently.
 public struct WeightSetupContext: Equatable {
     public var bodyweightLoaded: Bool
     public var bodyweightLbs: Double
     public var trackAngle: Bool
+    public var missingBodyweightHint: String?
 
-    public init(bodyweightLoaded: Bool = false, bodyweightLbs: Double = 0, trackAngle: Bool = false) {
+    public init(bodyweightLoaded: Bool = false, bodyweightLbs: Double = 0, trackAngle: Bool = false,
+                missingBodyweightHint: String? = nil) {
         self.bodyweightLoaded = bodyweightLoaded
         self.bodyweightLbs = bodyweightLbs
         self.trackAngle = trackAngle
+        self.missingBodyweightHint = missingBodyweightHint
     }
 }
 
@@ -208,6 +213,10 @@ public struct WeightSetupInput: View {
 
         if weightContext.bodyweightLbs > 0 {
             totalRow
+        } else if let hint = weightContext.missingBodyweightHint {
+            Label(hint, systemImage: "scalemass")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
 
         if weightContext.trackAngle {
