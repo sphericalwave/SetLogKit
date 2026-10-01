@@ -56,4 +56,23 @@ final class BodyweightPercentTests: XCTestCase {
     func testNoBodyweightLeavesLoadUnchanged() {
         XCTAssertEqual(WeightSetupEquipment.addedLoad(steppingPercent: 5, from: 20, bodyweightLbs: 0), 20)
     }
+
+    func testPercentWithoutBodyweightIsAddedLoadOnly() {
+        // 60 lb bench at 200 lb bodyweight = 30%
+        XCTAssertEqual(WeightSetupEquipment.percentOfBodyweight(addedLbs: 60, bodyweightLbs: 200,
+                                                                countsBodyweight: false), 30)
+    }
+
+    func testStepWithoutBodyweight() {
+        // 30% → 31% of 200 lb = 62 lb; 30% → 29% = 58 lb
+        XCTAssertEqual(WeightSetupEquipment.addedLoad(steppingPercent: 1, from: 60, bodyweightLbs: 200,
+                                                      countsBodyweight: false), 62)
+        XCTAssertEqual(WeightSetupEquipment.addedLoad(steppingPercent: -1, from: 60, bodyweightLbs: 200,
+                                                      countsBodyweight: false), 58)
+    }
+
+    func testStepWithoutBodyweightNeverNegative() {
+        XCTAssertEqual(WeightSetupEquipment.addedLoad(steppingPercent: -1, from: 0, bodyweightLbs: 200,
+                                                      countsBodyweight: false), 0)
+    }
 }
