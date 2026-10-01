@@ -88,7 +88,7 @@ public enum WeightSetupEquipment: EquipmentModel {
     }
 
     /// The added load after stepping the total by `points` percentage points
-    /// of bodyweight. Snaps to the step grid (153% +5 → 155%, not 158%) so
+    /// of bodyweight. Snaps to the step grid (153.4% +1 → 154%, not 154.4%) so
     /// repeated taps land on round percentages, never below 0% total, and
     /// rounds to 0.1 lb. Result is signed: below 100% it's assistance.
     public static func addedLoad(steppingPercent points: Double, from addedLbs: Double, bodyweightLbs: Double) -> Double {
@@ -263,7 +263,7 @@ public struct WeightSetupInput: View {
     }
 
     /// Percentage points of bodyweight per stepper tap on the Total row.
-    private static let percentStep: Double = 5
+    private static let percentStep: Double = 1
 
     /// What saves if the user stops here: the entered payload, else the
     /// suggested one RatedSetForm falls back to.

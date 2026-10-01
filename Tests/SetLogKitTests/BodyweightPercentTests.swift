@@ -28,6 +28,13 @@ final class BodyweightPercentTests: XCTestCase {
         XCTAssertEqual(WeightSetupEquipment.addedLoad(steppingPercent: -5, from: 106, bodyweightLbs: 200), 100)
     }
 
+    func testOnePointStep() {
+        // 150% → 151% of 200 lb = 2 lb more; 150.5% snaps to 151% / 150%
+        XCTAssertEqual(WeightSetupEquipment.addedLoad(steppingPercent: 1, from: 100, bodyweightLbs: 200), 102)
+        XCTAssertEqual(WeightSetupEquipment.addedLoad(steppingPercent: 1, from: 101, bodyweightLbs: 200), 102)
+        XCTAssertEqual(WeightSetupEquipment.addedLoad(steppingPercent: -1, from: 101, bodyweightLbs: 200), 100)
+    }
+
     func testCrossingBodyweightBecomesAssist() {
         // 100% → 95% of 200 lb = 10 lb assist
         XCTAssertEqual(WeightSetupEquipment.addedLoad(steppingPercent: -5, from: 0, bodyweightLbs: 200), -10)
