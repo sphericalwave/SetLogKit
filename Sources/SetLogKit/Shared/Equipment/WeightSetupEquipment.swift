@@ -79,27 +79,35 @@ public enum WeightSetupEquipment: EquipmentModel {
         return deg < 0 ? "\(mag)° decline" : "\(mag)° incline"
     }
 
-    /// Total load (bodyweight + signed added load) as a percentage of
-    /// bodyweight: bar at bodyweight on a squat is 200%, a 30 lb assist at
-    /// 180 lb bodyweight is ~83%. Nil without a bodyweight.
-    public static func percentOfBodyweight(addedLbs: Double, bodyweightLbs: Double) -> Double? {
+    /// Load as a percentage of bodyweight. When `countsBodyweight` (a lift
+    /// where you hoist yourself) the bodyweight is part of the load: bar at
+    /// bodyweight on a squat is 200%, a 30 lb assist at 180 lb bodyweight is
+    /// ~83%. Otherwise it's the added load alone: 60 lb at 180 lb is ~33%.
+    /// Nil without a bodyweight.
+    public static func percentOfBodyweight(addedLbs: Double, bodyweightLbs: Double,
+                                           countsBodyweight: Bool = true) -> Double? {
         guard bodyweightLbs > 0 else { return nil }
-        return (bodyweightLbs + addedLbs) / bodyweightLbs * 100
+        let base = countsBodyweight ? bodyweightLbs : 0
+        return (base + addedLbs) / bodyweightLbs * 100
     }
 
-    /// The added load after stepping the total by `points` percentage points
+    /// The added load after stepping the load by `points` percentage points
     /// of bodyweight. Snaps to the step grid (153.4% +1 → 154%, not 154.4%) so
     /// repeated taps land on round percentages, never below 0% total, and
-    /// rounds to 0.1 lb. Result is signed: below 100% it's assistance.
-    public static func addedLoad(steppingPercent points: Double, from addedLbs: Double, bodyweightLbs: Double) -> Double {
-        guard let pct = percentOfBodyweight(addedLbs: addedLbs, bodyweightLbs: bodyweightLbs),
+    /// rounds to 0.1 lb. Result is signed: on a bodyweight lift below 100%
+    /// it's assistance; otherwise it never goes below 0.
+    public static func addedLoad(steppingPercent points: Double, from addedLbs: Double, bodyweightLbs: Double,
+                                 countsBodyweight: Bool = true) -> Double {
+        guard let pct = percentOfBodyweight(addedLbs: addedLbs, bodyweightLbs: bodyweightLbs,
+                                            countsBodyweight: countsBodyweight),
               points != 0 else { return addedLbs }
         let step = abs(points)
         let slot = pct / step
         let eps = 1e-6
         let target = points > 0 ? ((slot + eps).rounded(.down) + 1) * step
                                 : ((slot - eps).rounded(.up) - 1) * step
-        let added = bodyweightLbs * max(target, 0) / 100 - bodyweightLbs
+        let base = countsBodyweight ? bodyweightLbs : 0
+        let added = bodyweightLbs * max(target, 0) / 100 - base
         return (added * 10).rounded() / 10
     }
 
@@ -198,7 +206,7 @@ public struct WeightSetupInput: View {
 
         weightRow
 
-        if weightContext.bodyweightLoaded && weightContext.bodyweightLbs > 0 {
+        if weightContext.bodyweightLbs > 0 {
             totalRow
         }
 
@@ -278,21 +286,29 @@ public struct WeightSetupInput: View {
     private func stepPercent(_ points: Double) {
         var p = effective
         p.weightLbs = WeightSetupEquipment.addedLoad(steppingPercent: points, from: p.weightLbs,
-                                                     bodyweightLbs: weightContext.bodyweightLbs)
-        assistMode = p.weightLbs < 0
+                                                     bodyweightLbs: weightContext.bodyweightLbs,
+                                                     countsBodyweight: weightContext.bodyweightLoaded)
+        if weightContext.bodyweightLoaded { assistMode = p.weightLbs < 0 }
         payload = p
     }
 
     private var totalRow: some View {
+        let bodyweightLift = weightContext.bodyweightLoaded
         let added = effective.weightLbs
         let total = weightContext.bodyweightLbs + added
         let pct = WeightSetupEquipment.percentOfBodyweight(addedLbs: added,
-                                                           bodyweightLbs: weightContext.bodyweightLbs) ?? 0
+                                                           bodyweightLbs: weightContext.bodyweightLbs,
+                                                           countsBodyweight: bodyweightLift) ?? 0
+        let pctText = pct.formatted(.number.precision(.fractionLength(0...1))) + "%"
         return Stepper {
             HStack {
-                Text("Total").font(.callout)
+                // A bodyweight lift shows the total it hoists; otherwise the
+                // Weight field already shows the pounds, so only the % is new.
+                Text(bodyweightLift ? "Total" : "Bodyweight %").font(.callout)
                 Spacer()
-                Text("\(total, format: .number.precision(.fractionLength(0...1))) lb · \(pct, format: .number.precision(.fractionLength(0...1)))%")
+                Text(bodyweightLift
+                     ? "\(total.formatted(.number.precision(.fractionLength(0...1)))) lb · \(pctText)"
+                     : pctText)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
@@ -301,7 +317,7 @@ public struct WeightSetupInput: View {
         } onDecrement: {
             stepPercent(-Self.percentStep)
         }
-        .accessibilityHint("Adjusts total load by \(Int(Self.percentStep)) percent of bodyweight")
+        .accessibilityHint("Adjusts load by \(Int(Self.percentStep)) percent of bodyweight")
     }
 
     private var setupRow: some View {
