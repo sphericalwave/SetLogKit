@@ -99,7 +99,7 @@ public enum WeightSetupEquipment: EquipmentModel {
     /// The added load after stepping the load by `points` percentage points
     /// of bodyweight. Snaps to the step grid (153.4% +1 → 154%, not 154.4%) so
     /// repeated taps land on round percentages, never below 0% total, and
-    /// rounds to 0.1 lb. Result is signed: on a bodyweight lift below 100%
+    /// rounds to 0.1 lb. Unbounded upward: each tap moves one more step. Result is signed: on a bodyweight lift below 100%
     /// it's assistance; otherwise it never goes below 0.
     public static func addedLoad(steppingPercent points: Double, from addedLbs: Double, bodyweightLbs: Double,
                                  countsBodyweight: Bool = true) -> Double {
@@ -108,7 +108,10 @@ public enum WeightSetupEquipment: EquipmentModel {
               points != 0 else { return addedLbs }
         let step = abs(points)
         let slot = pct / step
-        let eps = 1e-6
+        // The 0.1 lb rounding below can land the load up to 0.05 lb off the
+        // grid (41% → 40.98%). Treat that as on-grid, or the next tap would
+        // re-target the same percentage and the stepper would stall.
+        let eps = 0.05 / bodyweightLbs * 100 + 1e-6
         let target = points > 0 ? ((slot + eps).rounded(.down) + 1) * step
                                 : ((slot - eps).rounded(.up) - 1) * step
         let base = countsBodyweight ? bodyweightLbs : 0

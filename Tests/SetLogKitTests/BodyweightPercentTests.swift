@@ -75,4 +75,35 @@ final class BodyweightPercentTests: XCTestCase {
         XCTAssertEqual(WeightSetupEquipment.addedLoad(steppingPercent: -1, from: 0, bodyweightLbs: 200,
                                                       countsBodyweight: false), 0)
     }
+
+    func testRepeatedTapsKeepClimbingWhenRoundingLandsBelowGrid() {
+        // 41% of 197.4 lb = 80.934 → 80.9 lb, i.e. 40.98% — just under the grid.
+        // The next +1 must reach 42%, not re-snap to 41% and stall.
+        let bw = 197.4
+        var added = WeightSetupEquipment.addedLoad(steppingPercent: 1, from: bw * 0.40, bodyweightLbs: bw,
+                                                   countsBodyweight: false)
+        XCTAssertEqual(added, 80.9)
+        for expected in 42...300 {
+            added = WeightSetupEquipment.addedLoad(steppingPercent: 1, from: added, bodyweightLbs: bw,
+                                                   countsBodyweight: false)
+            let pct = WeightSetupEquipment.percentOfBodyweight(addedLbs: added, bodyweightLbs: bw,
+                                                               countsBodyweight: false)!
+            XCTAssertEqual(pct, Double(expected), accuracy: 0.05)
+        }
+    }
+
+    func testRepeatedDecrementsKeepFallingWhenRoundingLandsAboveGrid() {
+        let bw = 197.4
+        var added = 150.0
+        var last = WeightSetupEquipment.percentOfBodyweight(addedLbs: added, bodyweightLbs: bw,
+                                                            countsBodyweight: false)!
+        for _ in 0..<70 {
+            added = WeightSetupEquipment.addedLoad(steppingPercent: -1, from: added, bodyweightLbs: bw,
+                                                   countsBodyweight: false)
+            let pct = WeightSetupEquipment.percentOfBodyweight(addedLbs: added, bodyweightLbs: bw,
+                                                               countsBodyweight: false)!
+            XCTAssertLessThan(pct, last - 0.5)
+            last = pct
+        }
+    }
 }
