@@ -161,11 +161,19 @@ public struct WeightSetupInput: View {
     }
 
     /// The magnitude the user types; sign is applied from `assistMode`.
+    /// A typed 0 always writes a payload (like `stepPercent`) so it saves 0
+    /// instead of falling back to the suggestion; only clearing the field
+    /// falls back.
     private var magnitude: Binding<Double?> {
-        Binding(get: { payload?.weightLbs.magnitudeNonZero },
+        Binding(get: { payload.map { abs($0.weightLbs) } },
                 set: { newValue in
-                    let mag = newValue ?? 0
-                    update { $0.weightLbs = assistMode ? -mag : mag }
+                    guard let mag = newValue else {
+                        update { $0.weightLbs = 0 }
+                        return
+                    }
+                    var p = current
+                    p.weightLbs = assistMode ? -mag : mag
+                    payload = p
                 })
     }
     /// The angle magnitude the user types; sign is applied from `declineMode`.
