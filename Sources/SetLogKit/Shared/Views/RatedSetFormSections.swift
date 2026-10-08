@@ -111,6 +111,7 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
 
             if Equipment.self != NoEquipment.self {
                 Equipment.inputView(payload: $model.payload, suggested: suggestedPayload)
+                    .environment(\.ratedSetCurrentReps, model.reps)
             }
 
             HStack(alignment: .top, spacing: 0) {

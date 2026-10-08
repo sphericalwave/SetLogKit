@@ -22,18 +22,52 @@ import SwKeyboard
 /// angle matters (incline/decline bench press). `missingBodyweightHint`
 /// is shown in place of the %-of-bodyweight stepper while `bodyweightLbs`
 /// is 0, telling the user where to set it; nil hides the row silently.
+/// `previousSet` is the last recorded set for this exercise (the host app
+/// looks it up); when present the Weight row shows the % change in load
+/// against it. Nil hides the readout.
 public struct WeightSetupContext: Equatable {
     public var bodyweightLoaded: Bool
     public var bodyweightLbs: Double
     public var trackAngle: Bool
     public var missingBodyweightHint: String?
+    public var previousSet: WeightSetupPreviousSet?
 
     public init(bodyweightLoaded: Bool = false, bodyweightLbs: Double = 0, trackAngle: Bool = false,
-                missingBodyweightHint: String? = nil) {
+                missingBodyweightHint: String? = nil, previousSet: WeightSetupPreviousSet? = nil) {
         self.bodyweightLoaded = bodyweightLoaded
         self.bodyweightLbs = bodyweightLbs
         self.trackAngle = trackAngle
         self.missingBodyweightHint = missingBodyweightHint
+        self.previousSet = previousSet
+    }
+}
+
+/// The last recorded set for an exercise, as the Weight row compares against
+/// it. `weightLbs` is signed like the payload's (negative is assistance).
+/// `bodyweightLbs` is the bodyweight logged with that set, for bodyweight
+/// lifts; 0 means unknown and the current bodyweight stands in.
+public struct WeightSetupPreviousSet: Equatable, Sendable {
+    public var weightLbs: Double
+    public var reps: Int
+    public var bodyweightLbs: Double
+
+    public init(weightLbs: Double, reps: Int, bodyweightLbs: Double = 0) {
+        self.weightLbs = weightLbs
+        self.reps = reps
+        self.bodyweightLbs = bodyweightLbs
+    }
+}
+
+/// The set's current rep count, handed from the form to the equipment input
+/// so the vs-last readout can mention a rep change.
+private struct RatedSetCurrentRepsKey: EnvironmentKey {
+    static let defaultValue: Int? = nil
+}
+
+extension EnvironmentValues {
+    var ratedSetCurrentReps: Int? {
+        get { self[RatedSetCurrentRepsKey.self] }
+        set { self[RatedSetCurrentRepsKey.self] = newValue }
     }
 }
 
@@ -119,6 +153,31 @@ public enum WeightSetupEquipment: EquipmentModel {
         return (added * 10).rounded() / 10
     }
 
+    /// Percent change in load from the last set to this one. Compares the
+    /// weight moved, not volume or estimated 1RM: on a bodyweight lift
+    /// (`countsBodyweight`) that's bodyweight + added load, otherwise the
+    /// added load alone. Nil when the previous load is zero or less (no base
+    /// to compare against).
+    public static func percentChange(fromLbs previousLbs: Double, toLbs currentLbs: Double,
+                                     bodyweightLbs: Double, previousBodyweightLbs: Double = 0,
+                                     countsBodyweight: Bool = false) -> Double? {
+        let bodyweight = countsBodyweight ? bodyweightLbs : 0
+        let previousBodyweight = countsBodyweight
+            ? (previousBodyweightLbs > 0 ? previousBodyweightLbs : bodyweightLbs) : 0
+        let before = previousBodyweight + previousLbs
+        guard before > 0 else { return nil }
+        return (bodyweight + currentLbs - before) / before * 100
+    }
+
+    /// "+3.2% vs last", "−1.5% vs last", "0% vs last" — one decimal place, so
+    /// a change that rounds to zero reads as no change.
+    public static func changeLabel(_ percent: Double) -> String {
+        let rounded = (percent * 10).rounded() / 10
+        let mag = abs(rounded).formatted(.number.precision(.fractionLength(0...1)))
+        let sign = rounded > 0 ? "+" : rounded < 0 ? "−" : ""
+        return "\(sign)\(mag)% vs last"
+    }
+
     public static func summary(_ p: Payload) -> String {
         var parts: [String] = []
         if p.weightLbs != 0 { parts.append(loadLabel(p.weightLbs)) }
@@ -138,6 +197,7 @@ public struct WeightSetupInput: View {
     let suggested: WeightSetupEquipment.Payload?
 
     @Environment(\.weightSetupContext) private var weightContext
+    @Environment(\.ratedSetCurrentReps) private var currentReps
     /// Whether the entered magnitude counts as assistance (negative load).
     /// Held separately from the payload so the choice survives an empty field.
     @State private var assistMode = false
@@ -250,7 +310,10 @@ public struct WeightSetupInput: View {
 
     private var weightRow: some View {
         HStack {
-            Text("Weight").font(.callout)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Weight").font(.callout)
+                vsLastLabel
+            }
             Spacer()
             TextField("lbs", value: magnitude, format: .number,
                       prompt: Text(weightPlaceholder))
@@ -269,6 +332,30 @@ public struct WeightSetupInput: View {
             didInit = true
             assistMode = (payload?.weightLbs ?? suggested?.weightLbs ?? 0) < 0
             declineMode = (payload?.angleDeg ?? suggested?.angleDeg ?? 0) < 0
+        }
+    }
+
+    /// Load change against the host-supplied previous set, colored green up,
+    /// red down; a rep change rides along since it reframes the load change.
+    @ViewBuilder
+    private var vsLastLabel: some View {
+        if let prev = weightContext.previousSet,
+           let pct = WeightSetupEquipment.percentChange(
+               fromLbs: prev.weightLbs, toLbs: effective.weightLbs,
+               bodyweightLbs: weightContext.bodyweightLbs,
+               previousBodyweightLbs: prev.bodyweightLbs,
+               countsBodyweight: weightContext.bodyweightLoaded) {
+            let rounded = (pct * 10).rounded() / 10
+            HStack(spacing: 4) {
+                Text(WeightSetupEquipment.changeLabel(pct))
+                    .foregroundStyle(rounded > 0 ? Color.green : rounded < 0 ? Color.red : Color.secondary)
+                if let reps = currentReps, reps != prev.reps {
+                    Text("· \(prev.reps) → \(reps) reps").foregroundStyle(.secondary)
+                }
+            }
+            .font(.caption)
+            .monospacedDigit()
+            .accessibilityIdentifier("weightSetup.vsLast")
         }
     }
 
