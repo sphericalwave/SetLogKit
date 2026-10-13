@@ -256,13 +256,13 @@ public struct WeightSetupInput: View {
     /// the field empty saves exactly this value (RatedSetForm falls back to the
     /// suggested payload), so the placeholder is the real default, not a hint.
     private var weightPlaceholder: String {
-        guard let last = suggested?.weightLbs.magnitudeNonZero else { return "lbs" }
+        guard let last = suggested?.weightLbs.magnitudeNonZero else { return "0" }
         return last.formatted(.number.precision(.fractionLength(0...2)))
     }
     /// The last angle logged for this skill, shown as the placeholder — same
     /// "empty saves the placeholder value" behavior as `weightPlaceholder`.
     private var anglePlaceholder: String {
-        guard let last = suggested?.angleDeg.magnitudeNonZero else { return "deg" }
+        guard let last = suggested?.angleDeg.magnitudeNonZero else { return "0" }
         return last.formatted(.number.precision(.fractionLength(0...1)))
     }
 
@@ -315,8 +315,9 @@ public struct WeightSetupInput: View {
                 vsLastLabel
             }
             Spacer()
-            TextField("lbs", value: magnitude, format: .number,
+            TextField("Weight", value: magnitude, format: .number,
                       prompt: Text(weightPlaceholder))
+                .labelsHidden()
                 .decimalKeyboard()
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 80)
@@ -330,7 +331,11 @@ public struct WeightSetupInput: View {
         .onAppear {
             guard !didInit else { return }
             didInit = true
-            assistMode = (payload?.weightLbs ?? suggested?.weightLbs ?? 0) < 0
+            // Only a bodyweight lift has the Added/Assist picker. Elsewhere a
+            // negative suggestion (carried over from another exercise) must
+            // not silently turn typed load into assistance.
+            assistMode = weightContext.bodyweightLoaded
+                && (payload?.weightLbs ?? suggested?.weightLbs ?? 0) < 0
             declineMode = (payload?.angleDeg ?? suggested?.angleDeg ?? 0) < 0
         }
     }
@@ -363,8 +368,9 @@ public struct WeightSetupInput: View {
         HStack {
             Text("Angle").font(.callout)
             Spacer()
-            TextField("deg", value: angleMagnitude, format: .number,
+            TextField("Angle", value: angleMagnitude, format: .number,
                       prompt: Text(anglePlaceholder))
+                .labelsHidden()
                 .decimalKeyboard()
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 80)
@@ -431,7 +437,8 @@ public struct WeightSetupInput: View {
         HStack {
             Text("Setup").font(.callout)
             Spacer()
-            TextField("e.g. 12in box", text: setup, prompt: Text(setupPlaceholder))
+            TextField("Setup", text: setup, prompt: Text(setupPlaceholder))
+                .labelsHidden()
                 .multilineTextAlignment(.trailing)
                 .foregroundStyle(.secondary)
             Button(action: { if let s = suggested?.setupNotes, !s.isEmpty { update { $0.setupNotes = s } } }) {

@@ -106,7 +106,8 @@ public struct MetricStepperRow: View {
 
 /// Rep tempo: eccentric / bottom-pause / concentric / top-pause, each 0-9
 /// seconds. Shown as "3-1-1-0" with an optional matching preset name as a
-/// small subtitle, and edited by pushing `TempoDetailView`.
+/// small subtitle, and edited by pushing `TempoDetailView`. A non-nil
+/// `onStartCoach` adds a "Coach" button inside the row.
 public struct TempoRow: View {
     @Binding var eccentric: Int
     @Binding var bottomPause: Int
@@ -114,17 +115,19 @@ public struct TempoRow: View {
     @Binding var topPause: Int
     let info: String
     let library: TempoPresetLibrary
+    let onStartCoach: (() -> Void)?
     @State private var showInfo = false
 
     public init(eccentric: Binding<Int>, bottomPause: Binding<Int>,
                 concentric: Binding<Int>, topPause: Binding<Int>, info: String = "",
-                library: TempoPresetLibrary = .none) {
+                library: TempoPresetLibrary = .none, onStartCoach: (() -> Void)? = nil) {
         self._eccentric = eccentric
         self._bottomPause = bottomPause
         self._concentric = concentric
         self._topPause = topPause
         self.info = info
         self.library = library
+        self.onStartCoach = onStartCoach
     }
 
     private var tempoString: String { "\(eccentric)-\(bottomPause)-\(concentric)-\(topPause)" }
@@ -162,6 +165,18 @@ public struct TempoRow: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .presentationCompactAdaptation(.popover)
                     }
+                }
+                if let onStartCoach {
+                    Button(action: onStartCoach) {
+                        Label("Coach", systemImage: "waveform")
+                            .font(.callout)
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityLabel("Start tempo coach")
+                    .accessibilityIdentifier("ratedSetForm.tempoCoach")
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 1) {
