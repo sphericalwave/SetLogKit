@@ -80,22 +80,10 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
             if config.showsTempo {
                 TempoRow(eccentric: $model.tempoEccentric, bottomPause: $model.tempoBottomPause,
                          concentric: $model.tempoConcentric, topPause: $model.tempoTopPause,
-                         info: config.tempoInfo, library: tempoPresets)
+                         info: config.tempoInfo, library: tempoPresets,
+                         onStartCoach: config.showsTempoCoach && !model.tempoIsEmpty
+                            ? { showTempoCoach = true } : nil)
                     .accessibilityIdentifier("ratedSetForm.tempo")
-
-                if config.showsTempoCoach && !model.tempoIsEmpty {
-                    Button {
-                        showTempoCoach = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "waveform")
-                            Text("Start tempo coach")
-                            Spacer()
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("ratedSetForm.tempoCoach")
                     .sheet(isPresented: $showTempoCoach) {
                         TempoCoachView(
                             eccentric: model.tempoEccentric,
@@ -106,7 +94,6 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
                             onFinish: { model.reps = $0 }
                         )
                     }
-                }
             }
 
             if Equipment.self != NoEquipment.self {
