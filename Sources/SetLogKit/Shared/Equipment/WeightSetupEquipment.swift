@@ -178,6 +178,29 @@ public enum WeightSetupEquipment: EquipmentModel {
         return "\(sign)\(mag)% vs last"
     }
 
+    /// How many times `compoundLabel` repeats the change.
+    public static let compoundSteps = [3, 6, 9]
+
+    /// The Weight-field load after repeating a `percent` change `times` times
+    /// from `addedLbs`. Compounds the same quantity `percentChange` compares:
+    /// bodyweight + added on a bodyweight lift, else the added load alone.
+    public static func compounded(addedLbs: Double, percent: Double, times: Int,
+                                  bodyweightLbs: Double, countsBodyweight: Bool = false) -> Double {
+        let bodyweight = countsBodyweight ? bodyweightLbs : 0
+        return (bodyweight + addedLbs) * pow(1 + percent / 100, Double(times)) - bodyweight
+    }
+
+    /// "×3 8.1 · ×6 9 · ×9 10 lb" — where repeating this change would land.
+    public static func compoundLabel(addedLbs: Double, percent: Double,
+                                     bodyweightLbs: Double, countsBodyweight: Bool = false) -> String {
+        compoundSteps.map { n in
+            let lbs = compounded(addedLbs: addedLbs, percent: percent, times: n,
+                                 bodyweightLbs: bodyweightLbs, countsBodyweight: countsBodyweight)
+            return "×\(n) \(lbs.formatted(.number.precision(.fractionLength(0...1))))"
+        }
+        .joined(separator: " · ") + " lb"
+    }
+
     public static func summary(_ p: Payload) -> String {
         var parts: [String] = []
         if p.weightLbs != 0 { parts.append(loadLabel(p.weightLbs)) }
@@ -342,6 +365,7 @@ public struct WeightSetupInput: View {
 
     /// Load change against the host-supplied previous set, colored green up,
     /// red down; a rep change rides along since it reframes the load change.
+    /// Below it, where the load lands if the same change repeats 3, 6, 9×.
     @ViewBuilder
     private var vsLastLabel: some View {
         if let prev = weightContext.previousSet,
@@ -361,6 +385,17 @@ public struct WeightSetupInput: View {
             .font(.caption)
             .monospacedDigit()
             .accessibilityIdentifier("weightSetup.vsLast")
+            if rounded != 0 {
+                Text(WeightSetupEquipment.compoundLabel(
+                    addedLbs: effective.weightLbs, percent: pct,
+                    bodyweightLbs: weightContext.bodyweightLbs,
+                    countsBodyweight: weightContext.bodyweightLoaded))
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Repeating this change")
+                    .accessibilityIdentifier("weightSetup.compound")
+            }
         }
     }
 

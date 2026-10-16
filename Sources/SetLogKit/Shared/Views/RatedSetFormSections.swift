@@ -10,7 +10,7 @@
 import SwiftUI
 import EquipmentKit
 
-struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Header: View>: View {
+struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Header: View, Accessory: View>: View {
     let skill: Skill
     let config: RatedSetFormConfig
     let suggestedPayload: Equipment.Payload?
@@ -18,6 +18,8 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
     let maxHR: Int
     var tempoPresets: TempoPresetLibrary = .none
     let header: () -> Header
+    /// Trailing end of the header row, fed what would save now.
+    let headerAccessory: (Equipment.Payload?) -> Accessory
     @Bindable var model: RatedSetFormModel<Equipment.Payload>
 
     @State private var showTempoCoach = false
@@ -151,7 +153,8 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
                     }
                     Text("Level \(skill.depth)").font(.caption).foregroundStyle(.secondary)
                 }
-                Spacer()
+                Spacer(minLength: 12)
+                headerAccessory(model.payload ?? suggestedPayload)
             }
             .padding(.vertical, 4)
             .textCase(nil)
