@@ -62,4 +62,25 @@ final class VsLastSetTests: XCTestCase {
         let ctx = WeightSetupContext(previousSet: .init(weightLbs: 100, reps: 8))
         XCTAssertEqual(ctx.previousSet, WeightSetupPreviousSet(weightLbs: 100, reps: 8, bodyweightLbs: 0))
     }
+
+    // MARK: - Compounding
+
+    func testCompoundsAddedLoad() {
+        let lbs = WeightSetupEquipment.compounded(addedLbs: 7.25, percent: 3.6, times: 3, bodyweightLbs: 197)
+        XCTAssertEqual(lbs, 7.25 * pow(1.036, 3), accuracy: 1e-9)
+        XCTAssertEqual(WeightSetupEquipment.compoundLabel(addedLbs: 7.25, percent: 3.6, bodyweightLbs: 197),
+                       "×3 8.1 · ×6 9 · ×9 10 lb")
+    }
+
+    func testBodyweightLiftCompoundsTotalButReportsAdded() {
+        // 200 total → +10% twice = 242 total = 42 added.
+        let lbs = WeightSetupEquipment.compounded(addedLbs: 0, percent: 10, times: 2,
+                                                  bodyweightLbs: 200, countsBodyweight: true)
+        XCTAssertEqual(lbs, 42, accuracy: 1e-9)
+    }
+
+    func testCompoundsADecrease() {
+        let lbs = WeightSetupEquipment.compounded(addedLbs: 100, percent: -10, times: 2, bodyweightLbs: 0)
+        XCTAssertEqual(lbs, 81, accuracy: 1e-9)
+    }
 }
