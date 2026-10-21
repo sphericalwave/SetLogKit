@@ -82,6 +82,39 @@ public extension EnvironmentValues {
     }
 }
 
+/// A host-supplied way to work the load out instead of typing it — e.g. a
+/// resistance-band picker that estimates pounds from band and stretch. Shown
+/// as a row under Weight; tapping it presents `picker`, which calls `apply`
+/// with the load magnitude in lb and a setup note to save with the set. The
+/// sign still comes from the Added/Assist choice, which `picker` is told.
+/// `summary` labels the row with the current choice; nil reads "Choose".
+public struct WeightSetupLoadSource {
+    public var title: String
+    public var systemImage: String
+    public var summary: String?
+    public var picker: (_ assist: Bool, _ apply: @escaping (_ lbs: Double, _ setupNote: String) -> Void) -> AnyView
+
+    public init(title: String, systemImage: String, summary: String? = nil,
+                picker: @escaping (_ assist: Bool, _ apply: @escaping (_ lbs: Double, _ setupNote: String) -> Void) -> AnyView) {
+        self.title = title
+        self.systemImage = systemImage
+        self.summary = summary
+        self.picker = picker
+    }
+}
+
+private struct WeightSetupLoadSourceKey: EnvironmentKey {
+    static let defaultValue: WeightSetupLoadSource? = nil
+}
+
+public extension EnvironmentValues {
+    /// Nil (the default) hides the row.
+    var weightSetupLoadSource: WeightSetupLoadSource? {
+        get { self[WeightSetupLoadSourceKey.self] }
+        set { self[WeightSetupLoadSourceKey.self] = newValue }
+    }
+}
+
 public enum WeightSetupEquipment: EquipmentModel {
     // nonisolated: host app targets typically default to MainActor isolation,
     // which would make the Codable conformance main-actor-isolated and
@@ -221,6 +254,8 @@ public struct WeightSetupInput: View {
 
     @Environment(\.weightSetupContext) private var weightContext
     @Environment(\.ratedSetCurrentReps) private var currentReps
+    @Environment(\.weightSetupLoadSource) private var loadSource
+    @State private var showLoadSource = false
     /// Whether the entered magnitude counts as assistance (negative load).
     /// Held separately from the payload so the choice survives an empty field.
     @State private var assistMode = false
@@ -305,6 +340,10 @@ public struct WeightSetupInput: View {
 
         weightRow
 
+        if let loadSource {
+            loadSourceRow(loadSource)
+        }
+
         if weightContext.bodyweightLbs > 0 {
             totalRow
         } else if let hint = weightContext.missingBodyweightHint {
@@ -360,6 +399,37 @@ public struct WeightSetupInput: View {
             assistMode = weightContext.bodyweightLoaded
                 && (payload?.weightLbs ?? suggested?.weightLbs ?? 0) < 0
             declineMode = (payload?.angleDeg ?? suggested?.angleDeg ?? 0) < 0
+        }
+    }
+
+    /// Opens the host's picker; what it applies replaces the Weight magnitude
+    /// (signed by the Added/Assist choice) and the setup note.
+    private func loadSourceRow(_ source: WeightSetupLoadSource) -> some View {
+        Button { showLoadSource = true } label: {
+            HStack {
+                Label(source.title, systemImage: source.systemImage)
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text(source.summary ?? "Choose")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("weightSetup.loadSource")
+        .sheet(isPresented: $showLoadSource) {
+            source.picker(assistMode) { lbs, note in
+                var p = current
+                p.weightLbs = assistMode ? -abs(lbs) : abs(lbs)
+                p.setupNotes = note
+                payload = p
+            }
         }
     }
 
