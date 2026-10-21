@@ -150,7 +150,7 @@ public struct TempoRow: View {
                              info: info, library: library)
         } label: {
             HStack(spacing: 8) {
-                Text("Tempo").font(.callout)
+                Text("Tempo").font(.callout).lineLimit(1).fixedSize()
                 if !info.isEmpty {
                     Button { showInfo = true } label: {
                         Image(systemName: "info.circle").imageScale(.medium)
@@ -170,6 +170,10 @@ public struct TempoRow: View {
                     Button(action: onStartCoach) {
                         Label("Coach", systemImage: "waveform")
                             .font(.callout)
+                            .lineLimit(1)
+                            // Never wrap to "Coac / h" — the tempo readout
+                            // on the right gives up width first.
+                            .fixedSize()
                             .padding(.vertical, 4)
                             .contentShape(Rectangle())
                     }
