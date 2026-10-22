@@ -20,15 +20,18 @@
 import SwiftUI
 import EquipmentKit
 
-public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Header: View>: View {
+public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Header: View, Accessory: View>: View {
     private let skill: Skill
     private let editing: RatedSetDraft<Equipment.Payload>?
     private let suggestedDecision: ProgressionDecision
     private let suggestedPayload: Equipment.Payload?
     private let liveHR: HRStats?
     private let config: RatedSetFormConfig
+    private let suggestedTempo: TempoValue?
+    private let tempoPresets: TempoPresetLibrary
     private let initialIsometric: Bool
     private let header: () -> Header
+    private let headerAccessory: (Equipment.Payload?) -> Accessory
     private let onSave: (RatedSetEntry<Equipment.Payload>) -> Void
     private let onCancel: (() -> Void)?
 
@@ -52,8 +55,11 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
         suggestedPayload: Equipment.Payload? = nil,
         liveHR: HRStats? = nil,
         config: RatedSetFormConfig = .init(),
+        suggestedTempo: TempoValue? = nil,
+        tempoPresets: TempoPresetLibrary = .none,
         initialIsometric: Bool = false,
         @ViewBuilder header: @escaping () -> Header,
+        @ViewBuilder headerAccessory: @escaping (Equipment.Payload?) -> Accessory,
         onSave: @escaping (RatedSetEntry<Equipment.Payload>) -> Void,
         onCancel: (() -> Void)? = nil
     ) {
@@ -63,8 +69,11 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
         self.suggestedPayload = suggestedPayload
         self.liveHR = liveHR
         self.config = config
+        self.suggestedTempo = suggestedTempo
+        self.tempoPresets = tempoPresets
         self.initialIsometric = initialIsometric
         self.header = header
+        self.headerAccessory = headerAccessory
         self.onSave = onSave
         self.onCancel = onCancel
     }
@@ -81,13 +90,15 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
         VStack(spacing: 0) {
             NavigationStack {
                 Form {
-                    RatedSetFormSections<Skill, Equipment, Header>(
+                    RatedSetFormSections<Skill, Equipment, Header, Accessory>(
                         skill: skill,
                         config: config,
                         suggestedPayload: suggestedPayload,
                         hr: resolvedHR,
                         maxHR: HRConfig.effectiveMax(age: hrAge, manualOverride: hrMaxOverride),
+                        tempoPresets: tempoPresets,
                         header: header,
+                        headerAccessory: headerAccessory,
                         model: model
                     )
                 }
@@ -121,7 +132,8 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
             suggestedDecision: suggestedDecision,
             initialIsometric: initialIsometric,
             lastTempo: .init(eccentric: lastTempoEccentric, bottomPause: lastTempoBottomPause,
-                             concentric: lastTempoConcentric, topPause: lastTempoTopPause)
+                             concentric: lastTempoConcentric, topPause: lastTempoTopPause),
+            suggestedTempo: suggestedTempo
         )
     }
 
@@ -133,6 +145,31 @@ public struct RatedSetForm<Skill: RatedSetSkill, Equipment: EquipmentModel, Head
         lastTempoTopPause = tempo.topPause
         onSave(model.entry(fallbackPayload: suggestedPayload))
         dismiss()
+    }
+}
+extension RatedSetForm where Accessory == EmptyView {
+    /// A form with nothing trailing the header row.
+    public init(
+        skill: Skill,
+        equipment: Equipment.Type,
+        suggestedDecision: ProgressionDecision,
+        editing: RatedSetDraft<Equipment.Payload>? = nil,
+        suggestedPayload: Equipment.Payload? = nil,
+        liveHR: HRStats? = nil,
+        config: RatedSetFormConfig = .init(),
+        suggestedTempo: TempoValue? = nil,
+        tempoPresets: TempoPresetLibrary = .none,
+        initialIsometric: Bool = false,
+        @ViewBuilder header: @escaping () -> Header,
+        onSave: @escaping (RatedSetEntry<Equipment.Payload>) -> Void,
+        onCancel: (() -> Void)? = nil
+    ) {
+        self.init(skill: skill, equipment: equipment, suggestedDecision: suggestedDecision,
+                  editing: editing, suggestedPayload: suggestedPayload, liveHR: liveHR,
+                  config: config, suggestedTempo: suggestedTempo, tempoPresets: tempoPresets,
+                  initialIsometric: initialIsometric, header: header,
+                  headerAccessory: { _ in EmptyView() },
+                  onSave: onSave, onCancel: onCancel)
     }
 }
 #endif

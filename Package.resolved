@@ -1,0 +1,41 @@
+{
+  "pins" : [
+    {
+      "identity" : "audioclipkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sphericalwave/AudioClipKit.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "fb87955afe615da51515266e3d69432e74547dd0"
+      }
+    },
+    {
+      "identity" : "equipmentkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sphericalwave/EquipmentKit.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "d89b4bfcca98e74d496cf74c55765ee42185e06e"
+      }
+    },
+    {
+      "identity" : "swkeyboard",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sphericalwave/SwKeyboard.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "16894341e76d4bdb87ce2caa76094b95beb79aee"
+      }
+    },
+    {
+      "identity" : "workoutaudiokit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sphericalwave/WorkoutAudioKit.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "88cf54620a38d1f273b36fa0ff6f7c543b09cf6b"
+      }
+    }
+  ],
+  "version" : 2
+}

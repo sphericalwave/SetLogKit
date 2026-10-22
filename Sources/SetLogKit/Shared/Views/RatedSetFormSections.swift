@@ -10,14 +10,19 @@
 import SwiftUI
 import EquipmentKit
 
-struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Header: View>: View {
+struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Header: View, Accessory: View>: View {
     let skill: Skill
     let config: RatedSetFormConfig
     let suggestedPayload: Equipment.Payload?
     let hr: HRStats?
     let maxHR: Int
+    var tempoPresets: TempoPresetLibrary = .none
     let header: () -> Header
+    /// Trailing end of the header row, fed what would save now.
+    let headerAccessory: (Equipment.Payload?) -> Accessory
     @Bindable var model: RatedSetFormModel<Equipment.Payload>
+
+    @State private var showTempoCoach = false
 
     private var lastNote: String? {
         skill.priorSets.sorted { $0.loggedAt < $1.loggedAt }.reversed().lazy
@@ -68,7 +73,7 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
                 }
             }
 
-            DatePicker("Date", selection: $model.loggedAt, displayedComponents: .date)
+            DatePicker("Logged", selection: $model.loggedAt, displayedComponents: [.date, .hourAndMinute])
                 .accessibilityIdentifier("ratedSetForm.date")
 
             MetricStepperRow(label: "Reps", value: $model.reps, range: 0...200, info: config.repsInfo)
@@ -77,12 +82,25 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
             if config.showsTempo {
                 TempoRow(eccentric: $model.tempoEccentric, bottomPause: $model.tempoBottomPause,
                          concentric: $model.tempoConcentric, topPause: $model.tempoTopPause,
-                         info: config.tempoInfo)
+                         info: config.tempoInfo, library: tempoPresets,
+                         onStartCoach: config.showsTempoCoach && !model.tempoIsEmpty
+                            ? { showTempoCoach = true } : nil)
                     .accessibilityIdentifier("ratedSetForm.tempo")
+                    .sheet(isPresented: $showTempoCoach) {
+                        TempoCoachView(
+                            eccentric: model.tempoEccentric,
+                            bottomPause: model.tempoBottomPause,
+                            concentric: model.tempoConcentric,
+                            topPause: model.tempoTopPause,
+                            targetReps: model.reps,
+                            onFinish: { model.reps = $0 }
+                        )
+                    }
             }
 
             if Equipment.self != NoEquipment.self {
                 Equipment.inputView(payload: $model.payload, suggested: suggestedPayload)
+                    .environment(\.ratedSetCurrentReps, model.reps)
             }
 
             HStack(alignment: .top, spacing: 0) {
@@ -135,7 +153,8 @@ struct RatedSetFormSections<Skill: RatedSetSkill, Equipment: EquipmentModel, Hea
                     }
                     Text("Level \(skill.depth)").font(.caption).foregroundStyle(.secondary)
                 }
-                Spacer()
+                Spacer(minLength: 12)
+                headerAccessory(model.payload ?? suggestedPayload)
             }
             .padding(.vertical, 4)
             .textCase(nil)

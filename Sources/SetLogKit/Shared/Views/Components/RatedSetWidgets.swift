@@ -106,30 +106,37 @@ public struct MetricStepperRow: View {
 
 /// Rep tempo: eccentric / bottom-pause / concentric / top-pause, each 0-9
 /// seconds. Shown as "3-1-1-0" with an optional matching preset name as a
-/// small subtitle, and edited by pushing `TempoDetailView`.
+/// small subtitle, and edited by pushing `TempoDetailView`. A non-nil
+/// `onStartCoach` adds a "Coach" button inside the row.
 public struct TempoRow: View {
     @Binding var eccentric: Int
     @Binding var bottomPause: Int
     @Binding var concentric: Int
     @Binding var topPause: Int
     let info: String
+    let library: TempoPresetLibrary
+    let onStartCoach: (() -> Void)?
     @State private var showInfo = false
 
     public init(eccentric: Binding<Int>, bottomPause: Binding<Int>,
-                concentric: Binding<Int>, topPause: Binding<Int>, info: String = "") {
+                concentric: Binding<Int>, topPause: Binding<Int>, info: String = "",
+                library: TempoPresetLibrary = .none, onStartCoach: (() -> Void)? = nil) {
         self._eccentric = eccentric
         self._bottomPause = bottomPause
         self._concentric = concentric
         self._topPause = topPause
         self.info = info
+        self.library = library
+        self.onStartCoach = onStartCoach
     }
 
     private var tempoString: String { "\(eccentric)-\(bottomPause)-\(concentric)-\(topPause)" }
 
-    /// Matching preset label when the current phases land on a named scheme.
-    /// Skips "None" so 0-0-0-0 stays just the numbers.
+    /// Matching preset label when the current phases land on a named scheme —
+    /// built-in or one of the host's custom presets. Skips "None" so 0-0-0-0
+    /// stays just the numbers.
     private var presetSubtitle: String? {
-        guard let preset = TempoPreset.all.first(where: {
+        guard let preset = (TempoPreset.all + library.custom).first(where: {
             $0.matches(eccentric: eccentric, bottomPause: bottomPause,
                        concentric: concentric, topPause: topPause)
         }), preset.label != "None" else { return nil }
@@ -139,10 +146,11 @@ public struct TempoRow: View {
     public var body: some View {
         NavigationLink {
             TempoDetailView(eccentric: $eccentric, bottomPause: $bottomPause,
-                             concentric: $concentric, topPause: $topPause, info: info)
+                             concentric: $concentric, topPause: $topPause,
+                             info: info, library: library)
         } label: {
             HStack(spacing: 8) {
-                Text("Tempo").font(.callout)
+                Text("Tempo").font(.callout).lineLimit(1).fixedSize()
                 if !info.isEmpty {
                     Button { showInfo = true } label: {
                         Image(systemName: "info.circle").imageScale(.medium)
@@ -157,6 +165,22 @@ public struct TempoRow: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .presentationCompactAdaptation(.popover)
                     }
+                }
+                if let onStartCoach {
+                    Button(action: onStartCoach) {
+                        Label("Coach", systemImage: "waveform")
+                            .font(.callout)
+                            .lineLimit(1)
+                            // Never wrap to "Coac / h" — the tempo readout
+                            // on the right gives up width first.
+                            .fixedSize()
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityLabel("Start tempo coach")
+                    .accessibilityIdentifier("ratedSetForm.tempoCoach")
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 1) {

@@ -137,6 +137,10 @@ public struct RatedSetFormConfig: Sendable {
     /// so existing consumer apps are unaffected.
     public var showsTempo: Bool
     public var tempoInfo: String
+    /// Adds a "Start tempo coach" row under the tempo row, which counts reps
+    /// aloud at the set's tempo and writes the count back into Reps. Needs
+    /// `showsTempo`; off by default.
+    public var showsTempoCoach: Bool
 
     public init(showsIsometric: Bool = true,
                 showsSlices: Bool = true,
@@ -146,7 +150,8 @@ public struct RatedSetFormConfig: Sendable {
                 repsInfo: String = "",
                 slicesInfo: String = "",
                 showsTempo: Bool = false,
-                tempoInfo: String = "") {
+                tempoInfo: String = "",
+                showsTempoCoach: Bool = false) {
         self.showsIsometric = showsIsometric
         self.showsSlices = showsSlices
         self.tedStyle = tedStyle
@@ -156,6 +161,7 @@ public struct RatedSetFormConfig: Sendable {
         self.slicesInfo = slicesInfo
         self.showsTempo = showsTempo
         self.tempoInfo = tempoInfo
+        self.showsTempoCoach = showsTempoCoach
     }
 }
 

@@ -19,16 +19,55 @@ import SwKeyboard
 /// sheet. `bodyweightLoaded` shows a total-with-bodyweight readout and an
 /// Added/Assist toggle for lifts where you hoist your own bodyweight.
 /// `trackAngle` shows the Incline/Decline angle field for equipment where
-/// angle matters (incline/decline bench press).
+/// angle matters (incline/decline bench press). `missingBodyweightHint`
+/// is shown in place of the %-of-bodyweight stepper while `bodyweightLbs`
+/// is 0, telling the user where to set it; nil hides the row silently.
+/// `previousSet` is the last recorded set for this exercise (the host app
+/// looks it up); when present the Weight row shows the % change in load
+/// against it. Nil hides the readout.
 public struct WeightSetupContext: Equatable {
     public var bodyweightLoaded: Bool
     public var bodyweightLbs: Double
     public var trackAngle: Bool
+    public var missingBodyweightHint: String?
+    public var previousSet: WeightSetupPreviousSet?
 
-    public init(bodyweightLoaded: Bool = false, bodyweightLbs: Double = 0, trackAngle: Bool = false) {
+    public init(bodyweightLoaded: Bool = false, bodyweightLbs: Double = 0, trackAngle: Bool = false,
+                missingBodyweightHint: String? = nil, previousSet: WeightSetupPreviousSet? = nil) {
         self.bodyweightLoaded = bodyweightLoaded
         self.bodyweightLbs = bodyweightLbs
         self.trackAngle = trackAngle
+        self.missingBodyweightHint = missingBodyweightHint
+        self.previousSet = previousSet
+    }
+}
+
+/// The last recorded set for an exercise, as the Weight row compares against
+/// it. `weightLbs` is signed like the payload's (negative is assistance).
+/// `bodyweightLbs` is the bodyweight logged with that set, for bodyweight
+/// lifts; 0 means unknown and the current bodyweight stands in.
+public struct WeightSetupPreviousSet: Equatable, Sendable {
+    public var weightLbs: Double
+    public var reps: Int
+    public var bodyweightLbs: Double
+
+    public init(weightLbs: Double, reps: Int, bodyweightLbs: Double = 0) {
+        self.weightLbs = weightLbs
+        self.reps = reps
+        self.bodyweightLbs = bodyweightLbs
+    }
+}
+
+/// The set's current rep count, handed from the form to the equipment input
+/// so the vs-last readout can mention a rep change.
+private struct RatedSetCurrentRepsKey: EnvironmentKey {
+    static let defaultValue: Int? = nil
+}
+
+extension EnvironmentValues {
+    var ratedSetCurrentReps: Int? {
+        get { self[RatedSetCurrentRepsKey.self] }
+        set { self[RatedSetCurrentRepsKey.self] = newValue }
     }
 }
 
@@ -40,6 +79,39 @@ public extension EnvironmentValues {
     var weightSetupContext: WeightSetupContext {
         get { self[WeightSetupContextKey.self] }
         set { self[WeightSetupContextKey.self] = newValue }
+    }
+}
+
+/// A host-supplied way to work the load out instead of typing it — e.g. a
+/// resistance-band picker that estimates pounds from band and stretch. Shown
+/// as a row under Weight; tapping it presents `picker`, which calls `apply`
+/// with the load magnitude in lb and a setup note to save with the set. The
+/// sign still comes from the Added/Assist choice, which `picker` is told.
+/// `summary` labels the row with the current choice; nil reads "Choose".
+public struct WeightSetupLoadSource {
+    public var title: String
+    public var systemImage: String
+    public var summary: String?
+    public var picker: (_ assist: Bool, _ apply: @escaping (_ lbs: Double, _ setupNote: String) -> Void) -> AnyView
+
+    public init(title: String, systemImage: String, summary: String? = nil,
+                picker: @escaping (_ assist: Bool, _ apply: @escaping (_ lbs: Double, _ setupNote: String) -> Void) -> AnyView) {
+        self.title = title
+        self.systemImage = systemImage
+        self.summary = summary
+        self.picker = picker
+    }
+}
+
+private struct WeightSetupLoadSourceKey: EnvironmentKey {
+    static let defaultValue: WeightSetupLoadSource? = nil
+}
+
+public extension EnvironmentValues {
+    /// Nil (the default) hides the row.
+    var weightSetupLoadSource: WeightSetupLoadSource? {
+        get { self[WeightSetupLoadSourceKey.self] }
+        set { self[WeightSetupLoadSourceKey.self] = newValue }
     }
 }
 
@@ -79,6 +151,89 @@ public enum WeightSetupEquipment: EquipmentModel {
         return deg < 0 ? "\(mag)° decline" : "\(mag)° incline"
     }
 
+    /// Load as a percentage of bodyweight. When `countsBodyweight` (a lift
+    /// where you hoist yourself) the bodyweight is part of the load: bar at
+    /// bodyweight on a squat is 200%, a 30 lb assist at 180 lb bodyweight is
+    /// ~83%. Otherwise it's the added load alone: 60 lb at 180 lb is ~33%.
+    /// Nil without a bodyweight.
+    public static func percentOfBodyweight(addedLbs: Double, bodyweightLbs: Double,
+                                           countsBodyweight: Bool = true) -> Double? {
+        guard bodyweightLbs > 0 else { return nil }
+        let base = countsBodyweight ? bodyweightLbs : 0
+        return (base + addedLbs) / bodyweightLbs * 100
+    }
+
+    /// The added load after stepping the load by `points` percentage points
+    /// of bodyweight. Snaps to the step grid (153.4% +1 → 154%, not 154.4%) so
+    /// repeated taps land on round percentages, never below 0% total, and
+    /// rounds to 0.1 lb. Unbounded upward: each tap moves one more step. Result is signed: on a bodyweight lift below 100%
+    /// it's assistance; otherwise it never goes below 0.
+    public static func addedLoad(steppingPercent points: Double, from addedLbs: Double, bodyweightLbs: Double,
+                                 countsBodyweight: Bool = true) -> Double {
+        guard let pct = percentOfBodyweight(addedLbs: addedLbs, bodyweightLbs: bodyweightLbs,
+                                            countsBodyweight: countsBodyweight),
+              points != 0 else { return addedLbs }
+        let step = abs(points)
+        let slot = pct / step
+        // The 0.1 lb rounding below can land the load up to 0.05 lb off the
+        // grid (41% → 40.98%). Treat that as on-grid, or the next tap would
+        // re-target the same percentage and the stepper would stall.
+        let eps = 0.05 / bodyweightLbs * 100 + 1e-6
+        let target = points > 0 ? ((slot + eps).rounded(.down) + 1) * step
+                                : ((slot - eps).rounded(.up) - 1) * step
+        let base = countsBodyweight ? bodyweightLbs : 0
+        let added = bodyweightLbs * max(target, 0) / 100 - base
+        return (added * 10).rounded() / 10
+    }
+
+    /// Percent change in load from the last set to this one. Compares the
+    /// weight moved, not volume or estimated 1RM: on a bodyweight lift
+    /// (`countsBodyweight`) that's bodyweight + added load, otherwise the
+    /// added load alone. Nil when the previous load is zero or less (no base
+    /// to compare against).
+    public static func percentChange(fromLbs previousLbs: Double, toLbs currentLbs: Double,
+                                     bodyweightLbs: Double, previousBodyweightLbs: Double = 0,
+                                     countsBodyweight: Bool = false) -> Double? {
+        let bodyweight = countsBodyweight ? bodyweightLbs : 0
+        let previousBodyweight = countsBodyweight
+            ? (previousBodyweightLbs > 0 ? previousBodyweightLbs : bodyweightLbs) : 0
+        let before = previousBodyweight + previousLbs
+        guard before > 0 else { return nil }
+        return (bodyweight + currentLbs - before) / before * 100
+    }
+
+    /// "+3.2% vs last", "−1.5% vs last", "0% vs last" — one decimal place, so
+    /// a change that rounds to zero reads as no change.
+    public static func changeLabel(_ percent: Double) -> String {
+        let rounded = (percent * 10).rounded() / 10
+        let mag = abs(rounded).formatted(.number.precision(.fractionLength(0...1)))
+        let sign = rounded > 0 ? "+" : rounded < 0 ? "−" : ""
+        return "\(sign)\(mag)% vs last"
+    }
+
+    /// How many times `compoundLabel` repeats the change.
+    public static let compoundSteps = [3, 6, 9]
+
+    /// The Weight-field load after repeating a `percent` change `times` times
+    /// from `addedLbs`. Compounds the same quantity `percentChange` compares:
+    /// bodyweight + added on a bodyweight lift, else the added load alone.
+    public static func compounded(addedLbs: Double, percent: Double, times: Int,
+                                  bodyweightLbs: Double, countsBodyweight: Bool = false) -> Double {
+        let bodyweight = countsBodyweight ? bodyweightLbs : 0
+        return (bodyweight + addedLbs) * pow(1 + percent / 100, Double(times)) - bodyweight
+    }
+
+    /// "×3 8.1 · ×6 9 · ×9 10 lb" — where repeating this change would land.
+    public static func compoundLabel(addedLbs: Double, percent: Double,
+                                     bodyweightLbs: Double, countsBodyweight: Bool = false) -> String {
+        compoundSteps.map { n in
+            let lbs = compounded(addedLbs: addedLbs, percent: percent, times: n,
+                                 bodyweightLbs: bodyweightLbs, countsBodyweight: countsBodyweight)
+            return "×\(n) \(lbs.formatted(.number.precision(.fractionLength(0...1))))"
+        }
+        .joined(separator: " · ") + " lb"
+    }
+
     public static func summary(_ p: Payload) -> String {
         var parts: [String] = []
         if p.weightLbs != 0 { parts.append(loadLabel(p.weightLbs)) }
@@ -98,6 +253,9 @@ public struct WeightSetupInput: View {
     let suggested: WeightSetupEquipment.Payload?
 
     @Environment(\.weightSetupContext) private var weightContext
+    @Environment(\.ratedSetCurrentReps) private var currentReps
+    @Environment(\.weightSetupLoadSource) private var loadSource
+    @State private var showLoadSource = false
     /// Whether the entered magnitude counts as assistance (negative load).
     /// Held separately from the payload so the choice survives an empty field.
     @State private var assistMode = false
@@ -121,11 +279,19 @@ public struct WeightSetupInput: View {
     }
 
     /// The magnitude the user types; sign is applied from `assistMode`.
+    /// A typed 0 always writes a payload (like `stepPercent`) so it saves 0
+    /// instead of falling back to the suggestion; only clearing the field
+    /// falls back.
     private var magnitude: Binding<Double?> {
-        Binding(get: { payload?.weightLbs.magnitudeNonZero },
+        Binding(get: { payload.map { abs($0.weightLbs) } },
                 set: { newValue in
-                    let mag = newValue ?? 0
-                    update { $0.weightLbs = assistMode ? -mag : mag }
+                    guard let mag = newValue else {
+                        update { $0.weightLbs = 0 }
+                        return
+                    }
+                    var p = current
+                    p.weightLbs = assistMode ? -mag : mag
+                    payload = p
                 })
     }
     /// The angle magnitude the user types; sign is applied from `declineMode`.
@@ -148,13 +314,13 @@ public struct WeightSetupInput: View {
     /// the field empty saves exactly this value (RatedSetForm falls back to the
     /// suggested payload), so the placeholder is the real default, not a hint.
     private var weightPlaceholder: String {
-        guard let last = suggested?.weightLbs.magnitudeNonZero else { return "lbs" }
+        guard let last = suggested?.weightLbs.magnitudeNonZero else { return "0" }
         return last.formatted(.number.precision(.fractionLength(0...2)))
     }
     /// The last angle logged for this skill, shown as the placeholder — same
     /// "empty saves the placeholder value" behavior as `weightPlaceholder`.
     private var anglePlaceholder: String {
-        guard let last = suggested?.angleDeg.magnitudeNonZero else { return "deg" }
+        guard let last = suggested?.angleDeg.magnitudeNonZero else { return "0" }
         return last.formatted(.number.precision(.fractionLength(0...1)))
     }
 
@@ -174,8 +340,16 @@ public struct WeightSetupInput: View {
 
         weightRow
 
-        if weightContext.bodyweightLoaded && weightContext.bodyweightLbs > 0 {
+        if let loadSource {
+            loadSourceRow(loadSource)
+        }
+
+        if weightContext.bodyweightLbs > 0 {
             totalRow
+        } else if let hint = weightContext.missingBodyweightHint {
+            Label(hint, systemImage: "scalemass")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
 
         if weightContext.trackAngle {
@@ -198,10 +372,14 @@ public struct WeightSetupInput: View {
 
     private var weightRow: some View {
         HStack {
-            Text("Weight").font(.callout)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Weight").font(.callout)
+                vsLastLabel
+            }
             Spacer()
-            TextField("lbs", value: magnitude, format: .number,
+            TextField("Weight", value: magnitude, format: .number,
                       prompt: Text(weightPlaceholder))
+                .labelsHidden()
                 .decimalKeyboard()
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 80)
@@ -215,8 +393,79 @@ public struct WeightSetupInput: View {
         .onAppear {
             guard !didInit else { return }
             didInit = true
-            assistMode = (payload?.weightLbs ?? suggested?.weightLbs ?? 0) < 0
+            // Only a bodyweight lift has the Added/Assist picker. Elsewhere a
+            // negative suggestion (carried over from another exercise) must
+            // not silently turn typed load into assistance.
+            assistMode = weightContext.bodyweightLoaded
+                && (payload?.weightLbs ?? suggested?.weightLbs ?? 0) < 0
             declineMode = (payload?.angleDeg ?? suggested?.angleDeg ?? 0) < 0
+        }
+    }
+
+    /// Opens the host's picker; what it applies replaces the Weight magnitude
+    /// (signed by the Added/Assist choice) and the setup note.
+    private func loadSourceRow(_ source: WeightSetupLoadSource) -> some View {
+        Button { showLoadSource = true } label: {
+            HStack {
+                Label(source.title, systemImage: source.systemImage)
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text(source.summary ?? "Choose")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("weightSetup.loadSource")
+        .sheet(isPresented: $showLoadSource) {
+            source.picker(assistMode) { lbs, note in
+                var p = current
+                p.weightLbs = assistMode ? -abs(lbs) : abs(lbs)
+                p.setupNotes = note
+                payload = p
+            }
+        }
+    }
+
+    /// Load change against the host-supplied previous set, colored green up,
+    /// red down; a rep change rides along since it reframes the load change.
+    /// Below it, where the load lands if the same change repeats 3, 6, 9×.
+    @ViewBuilder
+    private var vsLastLabel: some View {
+        if let prev = weightContext.previousSet,
+           let pct = WeightSetupEquipment.percentChange(
+               fromLbs: prev.weightLbs, toLbs: effective.weightLbs,
+               bodyweightLbs: weightContext.bodyweightLbs,
+               previousBodyweightLbs: prev.bodyweightLbs,
+               countsBodyweight: weightContext.bodyweightLoaded) {
+            let rounded = (pct * 10).rounded() / 10
+            HStack(spacing: 4) {
+                Text(WeightSetupEquipment.changeLabel(pct))
+                    .foregroundStyle(rounded > 0 ? Color.green : rounded < 0 ? Color.red : Color.secondary)
+                if let reps = currentReps, reps != prev.reps {
+                    Text("· \(prev.reps) → \(reps) reps").foregroundStyle(.secondary)
+                }
+            }
+            .font(.caption)
+            .monospacedDigit()
+            .accessibilityIdentifier("weightSetup.vsLast")
+            if rounded != 0 {
+                Text(WeightSetupEquipment.compoundLabel(
+                    addedLbs: effective.weightLbs, percent: pct,
+                    bodyweightLbs: weightContext.bodyweightLbs,
+                    countsBodyweight: weightContext.bodyweightLoaded))
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Repeating this change")
+                    .accessibilityIdentifier("weightSetup.compound")
+            }
         }
     }
 
@@ -224,8 +473,9 @@ public struct WeightSetupInput: View {
         HStack {
             Text("Angle").font(.callout)
             Spacer()
-            TextField("deg", value: angleMagnitude, format: .number,
+            TextField("Angle", value: angleMagnitude, format: .number,
                       prompt: Text(anglePlaceholder))
+                .labelsHidden()
                 .decimalKeyboard()
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 80)
@@ -238,21 +488,62 @@ public struct WeightSetupInput: View {
         }
     }
 
+    /// Percentage points of bodyweight per stepper tap on the Total row.
+    private static let percentStep: Double = 1
+
+    /// What saves if the user stops here: the entered payload, else the
+    /// suggested one RatedSetForm falls back to.
+    private var effective: WeightSetupEquipment.Payload {
+        payload ?? suggested ?? .init(weightLbs: 0, setupNotes: "")
+    }
+
+    /// Steps the total load (bodyweight + added) by percentage points of
+    /// bodyweight, starting from what would save now. Always writes a
+    /// payload — even an all-zero one — so stepping to exactly bodyweight
+    /// saves 0 added load instead of falling back to the suggestion.
+    private func stepPercent(_ points: Double) {
+        var p = effective
+        p.weightLbs = WeightSetupEquipment.addedLoad(steppingPercent: points, from: p.weightLbs,
+                                                     bodyweightLbs: weightContext.bodyweightLbs,
+                                                     countsBodyweight: weightContext.bodyweightLoaded)
+        if weightContext.bodyweightLoaded { assistMode = p.weightLbs < 0 }
+        payload = p
+    }
+
     private var totalRow: some View {
-        let total = weightContext.bodyweightLbs + (payload?.weightLbs ?? 0)
-        return HStack {
-            Text("Total").font(.callout)
-            Spacer()
-            Text("\(total, format: .number.precision(.fractionLength(0...1))) lb")
-                .foregroundStyle(.secondary)
+        let bodyweightLift = weightContext.bodyweightLoaded
+        let added = effective.weightLbs
+        let total = weightContext.bodyweightLbs + added
+        let pct = WeightSetupEquipment.percentOfBodyweight(addedLbs: added,
+                                                           bodyweightLbs: weightContext.bodyweightLbs,
+                                                           countsBodyweight: bodyweightLift) ?? 0
+        let pctText = pct.formatted(.number.precision(.fractionLength(0...1))) + "%"
+        return Stepper {
+            HStack {
+                // A bodyweight lift shows the total it hoists; otherwise the
+                // Weight field already shows the pounds, so only the % is new.
+                Text(bodyweightLift ? "Total" : "Bodyweight %").font(.callout)
+                Spacer()
+                Text(bodyweightLift
+                     ? "\(total.formatted(.number.precision(.fractionLength(0...1)))) lb · \(pctText)"
+                     : pctText)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+        } onIncrement: {
+            stepPercent(Self.percentStep)
+        } onDecrement: {
+            stepPercent(-Self.percentStep)
         }
+        .accessibilityHint("Adjusts load by \(Int(Self.percentStep)) percent of bodyweight")
     }
 
     private var setupRow: some View {
         HStack {
             Text("Setup").font(.callout)
             Spacer()
-            TextField("e.g. 12in box", text: setup, prompt: Text(setupPlaceholder))
+            TextField("Setup", text: setup, prompt: Text(setupPlaceholder))
+                .labelsHidden()
                 .multilineTextAlignment(.trailing)
                 .foregroundStyle(.secondary)
             Button(action: { if let s = suggested?.setupNotes, !s.isEmpty { update { $0.setupNotes = s } } }) {

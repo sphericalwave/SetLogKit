@@ -96,3 +96,53 @@ final class RatedSetFormCompositionTests: XCTestCase {
         XCTAssertEqual(entry.decision, .progress)
     }
 }
+
+@MainActor
+final class RatedSetFormModelTempoSeedTests: XCTestCase {
+
+    private let carryForward = TempoValue(eccentric: 2, bottomPause: 0, concentric: 2, topPause: 0)
+
+    private func model() -> RatedSetFormModel<StubWeight.Payload> { .init() }
+
+    func testNewSetSeedsFromSuggestedTempoNotCarryForward() {
+        let m = model()
+        m.initIfNeeded(editing: nil, priorSets: [], defaultSliceCount: 0,
+                       suggestedDecision: .repeat, initialIsometric: false,
+                       lastTempo: carryForward,
+                       suggestedTempo: TempoValue(eccentric: 4, bottomPause: 1,
+                                                  concentric: 2, topPause: 0))
+        XCTAssertEqual(m.tempo, TempoValue(eccentric: 4, bottomPause: 1, concentric: 2, topPause: 0))
+    }
+
+    func testNewSetFallsBackToCarryForwardWhenNoSuggestion() {
+        let m = model()
+        m.initIfNeeded(editing: nil, priorSets: [], defaultSliceCount: 0,
+                       suggestedDecision: .repeat, initialIsometric: false,
+                       lastTempo: carryForward, suggestedTempo: nil)
+        XCTAssertEqual(m.tempo, carryForward)
+    }
+
+    func testEditingDraftOverridesSuggestedTempo() {
+        let m = model()
+        let draft = RatedSetDraft<StubWeight.Payload>(
+            reps: 5, rpt: 7, rpe: 6, rpd: 3, notes: "",
+            decision: .repeat, isometric: false, sliceCount: 0,
+            payload: nil,
+            tempoEccentric: 3, tempoBottomPause: 3,
+            tempoConcentric: 3, tempoTopPause: 0)
+        m.initIfNeeded(editing: draft, priorSets: [], defaultSliceCount: 0,
+                       suggestedDecision: .repeat, initialIsometric: false,
+                       lastTempo: carryForward,
+                       suggestedTempo: TempoValue(eccentric: 4, bottomPause: 1,
+                                                  concentric: 2, topPause: 0))
+        XCTAssertEqual(m.tempo, TempoValue(eccentric: 3, bottomPause: 3, concentric: 3, topPause: 0))
+    }
+
+    func testEmptySuggestedTempoLeavesCoachHidden() {
+        let m = model()
+        m.initIfNeeded(editing: nil, priorSets: [], defaultSliceCount: 0,
+                       suggestedDecision: .repeat, initialIsometric: false,
+                       lastTempo: carryForward, suggestedTempo: TempoValue())
+        XCTAssertTrue(m.tempoIsEmpty)
+    }
+}
