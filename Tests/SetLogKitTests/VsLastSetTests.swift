@@ -69,7 +69,13 @@ final class VsLastSetTests: XCTestCase {
         let lbs = WeightSetupEquipment.compounded(addedLbs: 7.25, percent: 3.6, times: 3, bodyweightLbs: 197)
         XCTAssertEqual(lbs, 7.25 * pow(1.036, 3), accuracy: 1e-9)
         XCTAssertEqual(WeightSetupEquipment.compoundLabel(addedLbs: 7.25, percent: 3.6, bodyweightLbs: 197),
-                       "×3 8.1 · ×6 9 · ×9 10 lb")
+                       "+3.6%/set → 8.1 · 9 · 10 lb in 3 · 6 · 9 sets")
+    }
+
+    func testCompoundLabelAtWholeRate() {
+        // 70 lb at +2%/set: 74.3, 78.8, 83.7.
+        XCTAssertEqual(WeightSetupEquipment.compoundLabel(addedLbs: 70, percent: 2, bodyweightLbs: 197),
+                       "+2%/set → 74.3 · 78.8 · 83.7 lb in 3 · 6 · 9 sets")
     }
 
     func testBodyweightLiftCompoundsTotalButReportsAdded() {
