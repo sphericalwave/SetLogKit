@@ -211,8 +211,15 @@ public enum WeightSetupEquipment: EquipmentModel {
         return "\(sign)\(mag)% vs last"
     }
 
-    /// How many times `compoundLabel` repeats the change.
+    /// How many sets ahead `compoundLabel` projects.
     public static let compoundSteps = [3, 6, 9]
+
+    /// Per-set growth rates (%) the compounding projection offers.
+    public static let compoundRates: [Double] = [1, 2, 3]
+    public static let defaultCompoundRate: Double = 2
+    /// AppStorage key for the chosen rate, shared with host charts; 0 hides
+    /// the projection.
+    public static let compoundRateKey = "setLogCompoundPercent"
 
     /// The Weight-field load after repeating a `percent` change `times` times
     /// from `addedLbs`. Compounds the same quantity `percentChange` compares:
@@ -223,15 +230,18 @@ public enum WeightSetupEquipment: EquipmentModel {
         return (bodyweight + addedLbs) * pow(1 + percent / 100, Double(times)) - bodyweight
     }
 
-    /// "×3 8.1 · ×6 9 · ×9 10 lb" — where repeating this change would land.
+    /// "+2%/set → 8.1 · 9 · 10 lb in 3 · 6 · 9 sets" — where adding
+    /// `percent` every set from here would land.
     public static func compoundLabel(addedLbs: Double, percent: Double,
                                      bodyweightLbs: Double, countsBodyweight: Bool = false) -> String {
-        compoundSteps.map { n in
-            let lbs = compounded(addedLbs: addedLbs, percent: percent, times: n,
-                                 bodyweightLbs: bodyweightLbs, countsBodyweight: countsBodyweight)
-            return "×\(n) \(lbs.formatted(.number.precision(.fractionLength(0...1))))"
+        let loads = compoundSteps.map { n in
+            compounded(addedLbs: addedLbs, percent: percent, times: n,
+                       bodyweightLbs: bodyweightLbs, countsBodyweight: countsBodyweight)
+                .formatted(.number.precision(.fractionLength(0...1)))
         }
-        .joined(separator: " · ") + " lb"
+        let rate = percent.formatted(.number.precision(.fractionLength(0...1)))
+        let steps = compoundSteps.map(String.init).joined(separator: " · ")
+        return "+\(rate)%/set → \(loads.joined(separator: " · ")) lb in \(steps) sets"
     }
 
     public static func summary(_ p: Payload) -> String {
@@ -256,6 +266,8 @@ public struct WeightSetupInput: View {
     @Environment(\.ratedSetCurrentReps) private var currentReps
     @Environment(\.weightSetupLoadSource) private var loadSource
     @State private var showLoadSource = false
+    @AppStorage(WeightSetupEquipment.compoundRateKey)
+    private var compoundRate = WeightSetupEquipment.defaultCompoundRate
     /// Whether the entered magnitude counts as assistance (negative load).
     /// Held separately from the payload so the choice survives an empty field.
     @State private var assistMode = false
@@ -435,9 +447,27 @@ public struct WeightSetupInput: View {
 
     /// Load change against the host-supplied previous set, colored green up,
     /// red down; a rep change rides along since it reframes the load change.
-    /// Below it, where the load lands if the same change repeats 3, 6, 9×.
+    /// Below it, where the load lands 3, 6, 9 sets out at the chosen
+    /// per-set rate.
     @ViewBuilder
     private var vsLastLabel: some View {
+        vsLastChange
+        let base = (weightContext.bodyweightLoaded ? weightContext.bodyweightLbs : 0) + effective.weightLbs
+        if compoundRate > 0, base > 0 {
+            Text(WeightSetupEquipment.compoundLabel(
+                addedLbs: effective.weightLbs, percent: compoundRate,
+                bodyweightLbs: weightContext.bodyweightLbs,
+                countsBodyweight: weightContext.bodyweightLoaded))
+                .font(.caption2)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Projected load at \(compoundRate.formatted())% per set")
+                .accessibilityIdentifier("weightSetup.compound")
+        }
+    }
+
+    @ViewBuilder
+    private var vsLastChange: some View {
         if let prev = weightContext.previousSet,
            let pct = WeightSetupEquipment.percentChange(
                fromLbs: prev.weightLbs, toLbs: effective.weightLbs,
@@ -455,17 +485,6 @@ public struct WeightSetupInput: View {
             .font(.caption)
             .monospacedDigit()
             .accessibilityIdentifier("weightSetup.vsLast")
-            if rounded != 0 {
-                Text(WeightSetupEquipment.compoundLabel(
-                    addedLbs: effective.weightLbs, percent: pct,
-                    bodyweightLbs: weightContext.bodyweightLbs,
-                    countsBodyweight: weightContext.bodyweightLoaded))
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("Repeating this change")
-                    .accessibilityIdentifier("weightSetup.compound")
-            }
         }
     }
 
