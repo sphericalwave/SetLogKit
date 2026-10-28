@@ -88,16 +88,20 @@ public extension EnvironmentValues {
 /// with the load magnitude in lb and a setup note to save with the set. The
 /// sign still comes from the Added/Assist choice, which `picker` is told.
 /// `summary` labels the row with the current choice; nil reads "Choose".
+/// `icon`, when given, replaces `systemImage` — e.g. colour chips for the
+/// bands picked.
 public struct WeightSetupLoadSource {
     public var title: String
     public var systemImage: String
+    public var icon: AnyView?
     public var summary: String?
     public var picker: (_ assist: Bool, _ apply: @escaping (_ lbs: Double, _ setupNote: String) -> Void) -> AnyView
 
-    public init(title: String, systemImage: String, summary: String? = nil,
+    public init(title: String, systemImage: String, icon: AnyView? = nil, summary: String? = nil,
                 picker: @escaping (_ assist: Bool, _ apply: @escaping (_ lbs: Double, _ setupNote: String) -> Void) -> AnyView) {
         self.title = title
         self.systemImage = systemImage
+        self.icon = icon
         self.summary = summary
         self.picker = picker
     }
@@ -419,9 +423,13 @@ public struct WeightSetupInput: View {
     private func loadSourceRow(_ source: WeightSetupLoadSource) -> some View {
         Button { showLoadSource = true } label: {
             HStack {
-                Label(source.title, systemImage: source.systemImage)
-                    .font(.callout)
-                    .foregroundStyle(.primary)
+                Label {
+                    Text(source.title)
+                } icon: {
+                    if let icon = source.icon { icon } else { Image(systemName: source.systemImage) }
+                }
+                .font(.callout)
+                .foregroundStyle(.primary)
                 Spacer()
                 Text(source.summary ?? "Choose")
                     .font(.callout)
