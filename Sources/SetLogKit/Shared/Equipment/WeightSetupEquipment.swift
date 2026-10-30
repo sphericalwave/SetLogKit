@@ -16,8 +16,9 @@ import EquipmentKit
 import SwKeyboard
 
 /// Context for the weight/angle input, injected by the host app's set-log
-/// sheet. `bodyweightLoaded` shows a total-with-bodyweight readout and an
-/// Added/Assist toggle for lifts where you hoist your own bodyweight.
+/// sheet. `bodyweightLoaded` shows a total-with-bodyweight readout and a
+/// None/Added/Assist choice for lifts where you hoist your own bodyweight;
+/// None hides the load rows.
 /// `trackAngle` shows the Incline/Decline angle field for equipment where
 /// angle matters (incline/decline bench press). `missingBodyweightHint`
 /// is shown in place of the %-of-bodyweight stepper while `bodyweightLbs`
@@ -272,9 +273,13 @@ public struct WeightSetupInput: View {
     @State private var showLoadSource = false
     @AppStorage(WeightSetupEquipment.compoundRateKey)
     private var compoundRate = WeightSetupEquipment.defaultCompoundRate
-    /// Whether the entered magnitude counts as assistance (negative load).
-    /// Held separately from the payload so the choice survives an empty field.
-    @State private var assistMode = false
+    /// No load, added load, or assistance (negative load) — a bodyweight
+    /// lift's choice. Held separately from the payload so it survives an
+    /// empty field. Nil until picked: `startMode` stands in.
+    @State private var pickedMode: LoadMode?
+    /// What the set being edited, else the last set, was done with — the
+    /// choice the form opens on. Frozen at init so typing a 0 doesn't flip it.
+    private let startMode: LoadMode
     /// Whether the entered angle magnitude counts as decline (negative).
     /// Held separately from the payload so the choice survives an empty field.
     @State private var declineMode = false
@@ -283,6 +288,39 @@ public struct WeightSetupInput: View {
     init(payload: Binding<WeightSetupEquipment.Payload?>, suggested: WeightSetupEquipment.Payload?) {
         self._payload = payload
         self.suggested = suggested
+        let lbs = payload.wrappedValue?.weightLbs ?? suggested?.weightLbs ?? 0
+        startMode = lbs < 0 ? .assist : lbs > 0 ? .added : .none
+    }
+
+    enum LoadMode: Hashable { case none, added, assist }
+
+    /// Only a bodyweight lift has the None/Added/Assist picker. Elsewhere a
+    /// negative suggestion (carried over from another exercise) must not
+    /// silently turn typed load into assistance, nor hide the Weight row.
+    private var loadMode: LoadMode {
+        guard weightContext.bodyweightLoaded else { return .added }
+        return pickedMode ?? startMode
+    }
+
+    /// Re-signs the load for the new choice. None writes an explicit
+    /// zero-load payload so the set saves no load rather than falling back to
+    /// the last set's; leaving None drops that placeholder payload again.
+    private func setLoadMode(_ mode: LoadMode) {
+        let old = loadMode
+        pickedMode = mode
+        switch mode {
+        case .none:
+            var p = current
+            p.weightLbs = 0
+            payload = p
+        case .added, .assist:
+            let mag = abs(current.weightLbs)
+            if mag != 0 {
+                update { $0.weightLbs = mode == .assist ? -mag : mag }
+            } else if old == .none, payload == .init(weightLbs: 0, setupNotes: "") {
+                payload = nil
+            }
+        }
     }
 
     private var current: WeightSetupEquipment.Payload {
@@ -291,10 +329,11 @@ public struct WeightSetupInput: View {
     private func update(_ transform: (inout WeightSetupEquipment.Payload) -> Void) {
         var p = current
         transform(&p)
-        payload = (p.weightLbs != 0 || !p.setupNotes.isEmpty || p.angleDeg != 0) ? p : nil
+        // In None an all-empty payload still saves, as no load.
+        payload = (p.weightLbs != 0 || !p.setupNotes.isEmpty || p.angleDeg != 0 || loadMode == .none) ? p : nil
     }
 
-    /// The magnitude the user types; sign is applied from `assistMode`.
+    /// The magnitude the user types; sign is applied from `loadMode`.
     /// A typed 0 always writes a payload (like `stepPercent`) so it saves 0
     /// instead of falling back to the suggestion; only clearing the field
     /// falls back.
@@ -306,7 +345,7 @@ public struct WeightSetupInput: View {
                         return
                     }
                     var p = current
-                    p.weightLbs = assistMode ? -mag : mag
+                    p.weightLbs = loadMode == .assist ? -mag : mag
                     payload = p
                 })
     }
@@ -342,30 +381,30 @@ public struct WeightSetupInput: View {
 
     public var body: some View {
         if weightContext.bodyweightLoaded {
-            Picker("Load", selection: $assistMode) {
-                Text("Added").tag(false)
-                Text("Assist").tag(true)
+            Picker("Load", selection: Binding(get: { loadMode }, set: setLoadMode)) {
+                Text("None").tag(LoadMode.none)
+                Text("Added").tag(LoadMode.added)
+                Text("Assist").tag(LoadMode.assist)
             }
             .pickerStyle(.segmented)
             .tint(.accentColor)
-            .onChange(of: assistMode) { _, assist in
-                let mag = abs(current.weightLbs)
-                if mag != 0 { update { $0.weightLbs = assist ? -mag : mag } }
+            .accessibilityIdentifier("weightSetup.loadMode")
+        }
+
+        if loadMode != .none {
+            weightRow
+
+            if let loadSource {
+                loadSourceRow(loadSource)
             }
-        }
 
-        weightRow
-
-        if let loadSource {
-            loadSourceRow(loadSource)
-        }
-
-        if weightContext.bodyweightLbs > 0 {
-            totalRow
-        } else if let hint = weightContext.missingBodyweightHint {
-            Label(hint, systemImage: "scalemass")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            if weightContext.bodyweightLbs > 0 {
+                totalRow
+            } else if let hint = weightContext.missingBodyweightHint {
+                Label(hint, systemImage: "scalemass")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
 
         if weightContext.trackAngle {
@@ -406,16 +445,6 @@ public struct WeightSetupInput: View {
             .buttonStyle(.borderless)
             .disabled(suggested?.weightLbs.magnitudeNonZero == nil)
         }
-        .onAppear {
-            guard !didInit else { return }
-            didInit = true
-            // Only a bodyweight lift has the Added/Assist picker. Elsewhere a
-            // negative suggestion (carried over from another exercise) must
-            // not silently turn typed load into assistance.
-            assistMode = weightContext.bodyweightLoaded
-                && (payload?.weightLbs ?? suggested?.weightLbs ?? 0) < 0
-            declineMode = (payload?.angleDeg ?? suggested?.angleDeg ?? 0) < 0
-        }
     }
 
     /// Opens the host's picker; what it applies replaces the Weight magnitude
@@ -444,9 +473,9 @@ public struct WeightSetupInput: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("weightSetup.loadSource")
         .sheet(isPresented: $showLoadSource) {
-            source.picker(assistMode) { lbs, note in
+            source.picker(loadMode == .assist) { lbs, note in
                 var p = current
-                p.weightLbs = assistMode ? -abs(lbs) : abs(lbs)
+                p.weightLbs = loadMode == .assist ? -abs(lbs) : abs(lbs)
                 p.setupNotes = note
                 payload = p
             }
@@ -533,7 +562,7 @@ public struct WeightSetupInput: View {
         p.weightLbs = WeightSetupEquipment.addedLoad(steppingPercent: points, from: p.weightLbs,
                                                      bodyweightLbs: weightContext.bodyweightLbs,
                                                      countsBodyweight: weightContext.bodyweightLoaded)
-        if weightContext.bodyweightLoaded { assistMode = p.weightLbs < 0 }
+        if weightContext.bodyweightLoaded { pickedMode = p.weightLbs < 0 ? .assist : .added }
         payload = p
     }
 
@@ -578,6 +607,12 @@ public struct WeightSetupInput: View {
             }
             .buttonStyle(.borderless)
             .disabled((suggested?.setupNotes ?? "").isEmpty)
+        }
+        // Here, not on the Weight row, which None hides.
+        .onAppear {
+            guard !didInit else { return }
+            didInit = true
+            declineMode = (payload?.angleDeg ?? suggested?.angleDeg ?? 0) < 0
         }
     }
 }
